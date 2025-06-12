@@ -130,3 +130,19 @@ void PxPollEvents(PxWindow *window) {
     TranslateMessage(&((window_t*)window->inner)->msg);
     DispatchMessageA(&((window_t*)window->inner)->msg);
 }
+
+PxDisplayInfo PxGetDisplay(PxContext *context) {
+    int num_monitors = GetSystemMetrics(SM_CMONITORS);
+    ERRCHECK_T(num_monitors, *context->result, PX_FAILED_OSCALL, PxDisplayInfo);
+
+    int width = GetSystemMetrics(SM_CXSCREEN);
+    ERRCHECK_T(width, *context->result, PX_FAILED_OSCALL, PxDisplayInfo);
+
+    int height = GetSystemMetrics(SM_CYSCREEN);
+    ERRCHECK_T(height, *context->result, PX_FAILED_OSCALL, PxDisplayInfo);
+
+    return (const PxDisplayInfo) {
+        width, height,
+        num_monitors
+    };
+}

@@ -19,7 +19,7 @@
 #define PX_FAILED_STRING 4
 #define PX_FAILED_OSCALL 5
 
-#define PX_WRONG_PARAM 4000
+#define PX_INVALID_PARAM 4000
 
 #define PX_TRUE 1
 #define PX_FALSE 0

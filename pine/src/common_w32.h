@@ -13,7 +13,4 @@ typedef struct {
     MSG msg;
 } window_t;
 
-#define ERRCHECK_N(var_to_check, res, errcode) if (!(var_to_check)) {(res) = (errcode); return NULL;}
-#define ERRCHECK_V(var_to_check, res, errcode) if (!(var_to_check)) {(res) = (errcode); return;}
-
 #endif //_PXW32_H

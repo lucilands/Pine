@@ -14,18 +14,16 @@ struct PxContext_internal {
     PxResult *result;
 };
 
-// Internal utility functions
+// Internal utility functions (Pxi = Pine Internal)
+
+#define ERRCHECK_N(var_to_check, res, errcode) if (!(var_to_check)) {(res) = (errcode); return NULL;}
+#define ERRCHECK_V(var_to_check, res, errcode) if (!(var_to_check)) {(res) = (errcode); return;}
+#define ERRCHECK_T(var_to_check, res, errcode, type) if (!(var_to_check)) {(res) = (errcode); return (type){0};}
 
 void PxiUpdateTitle(PxContext *context, PxWindow *window, const char *new_title);
-
 
 void PxiUpdatePosition(PxContext *context, PxWindow *window, int *new_position);
 void PxiUpdateSize(PxContext *context, PxWindow *window, int *new_size);
 void PxiUpdateRect(PxContext *context, PxWindow *window, int *new_rect);
-
-//void PxiUpdateX(PxContext *context, PxWindow *window, int new_x);
-//void PxiUpdateY(PxContext *context, PxWindow *window, int new_y);
-//void PxiUpdateWidth(PxContext *context, PxWindow *window, int new_width);
-//void PxiUpdateHeight(PxContext *context, PxWindow *window, int new_height);
 
 #endif //_COMMON_H

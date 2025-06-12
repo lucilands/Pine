@@ -18,7 +18,7 @@ char *PxErrorToString(PxResult res) {
         case PX_FAILED_STRING: return "Failed string operation";
         case PX_FAILED_OSCALL: return "Failed call to Operating System";
 
-        case PX_WRONG_PARAM: return "Invalid parameter";
+        case PX_INVALID_PARAM: return "Invalid parameter";
     }
 }
 
@@ -42,7 +42,7 @@ void *PxGetWindowParam(PxContext *context, PxWindow *window, enum PxWindowParam 
         case PX_PARAM_TITLE: return (void*)window->info.title;
 
         default:
-            *context->result = PX_WRONG_PARAM;
+            *context->result = PX_INVALID_PARAM;
             return NULL;
     }
 }
@@ -59,7 +59,7 @@ void PxSetWindowParam(PxContext *context, PxWindow *window, enum PxWindowParam p
         case PX_PARAM_TITLE: PxiUpdateTitle(context, window, (char*)value); return;
 
         default:
-            *context->result = PX_WRONG_PARAM;
+            *context->result = PX_INVALID_PARAM;
             return;
     }
 }

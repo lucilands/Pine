@@ -12,6 +12,11 @@ typedef struct {
     char *title;
 } PxWindowInfo;
 
+typedef struct {
+    const PxInt32 width, height;
+    const PxUint8 amount;
+} PxDisplayInfo;
+
 enum PxWindowParam {
     PX_PARAM_SHOULD_CLOSE = 0,
 
@@ -21,6 +26,8 @@ enum PxWindowParam {
 
     PX_PARAM_TITLE,
 };
+
+PxDisplayInfo PxGetDisplay(PxContext *context);
 
 PxContext *PxCreateContext(PxResult *res);
 PxWindow *PxCreateWindow(PxContext *context, const PxWindowInfo info, PxWindow *parent);
