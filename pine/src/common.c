@@ -34,13 +34,11 @@ void *PxGetWindowParam(PxContext *context, PxWindow *window, enum PxWindowParam 
     switch (param) {
         case PX_PARAM_SHOULD_CLOSE: return (void*)&window->should_close;
 
-        case PX_PARAM_WIDTH: return (void*)&window->info.width;
-        case PX_PARAM_HEIGHT: return (void*)&window->info.height;
+        case PX_PARAM_SIZE: return (void*)(int[2]){window->info.width, window->info.height};
+        case PX_PARAM_POSITION: return (void*)(int[2]){window->info.x, window->info.y};
+        case PX_PARAM_RECT: return (void*)(int[4]){window->info.width, window->info.height, window->info.x, window->info.y};
 
-        case PX_PARAM_X: return (void*)&window->info.x;
-        case PX_PARAM_Y: return (void*)&window->info.y;
-
-        case PX_PARAM_TITLE: return (void*)&window->info.title;
+        case PX_PARAM_TITLE: return (void*)window->info.title;
 
         default:
             *context->result = PX_WRONG_PARAM;
@@ -52,11 +50,10 @@ void PxSetWindowParam(PxContext *context, PxWindow *window, enum PxWindowParam p
     switch (param) {
         case PX_PARAM_SHOULD_CLOSE: window->should_close = ptrtoi(value); return;
 
-        case PX_PARAM_WIDTH: PxiUpdateWidth(context, window, ptrtoi(value)); return;
-        case PX_PARAM_HEIGHT: PxiUpdateHeight(context, window, ptrtoi(value)); return;
+        case PX_PARAM_SIZE: PxiUpdateSize(context, window, value); return;
+        case PX_PARAM_POSITION: PxiUpdatePosition(context, window, value); return;
 
-        case PX_PARAM_X: PxiUpdateX(context, window, ptrtoi(value)); return;
-        case PX_PARAM_Y: PxiUpdateY(context, window, ptrtoi(value)); return;
+        case PX_PARAM_RECT: PxiUpdateRect(context, window, value); return;
 
         case PX_PARAM_TITLE: PxiUpdateTitle(context, window, (char*)value); return;
 

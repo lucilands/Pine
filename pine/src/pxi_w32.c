@@ -3,27 +3,42 @@
 #include "common.h"
 #include "common_w32.h"
 
-void PxiUpdateX(PxContext *context, PxWindow *window, int new_x) {
-    window->info.x = new_x;
-    WINBOOL ret = SetWindowPos(((window_t*)window->inner)->window_handle, HWND_TOP, window->info.x, window->info.y, 0, 0, SWP_NOSIZE | SWP_SHOWWINDOW);
+void PxiUpdatePosition(PxContext *context, PxWindow *window, int *new_position) {
+    window->info.x = new_position[0];
+    window->info.y = new_position[1];
+    WINBOOL ret = SetWindowPos(((window_t*)window->inner)->window_handle,
+        HWND_TOP,
+        window->info.x, window->info.y,
+        0, 0,
+        SWP_NOSIZE | SWP_SHOWWINDOW
+    );
     ERRCHECK_V(ret, *context->result, PX_FAILED_OSCALL);
 }
 
-void PxiUpdateY(PxContext *context, PxWindow *window, int new_y) {
-    window->info.y = new_y;
-    WINBOOL ret = SetWindowPos(((window_t*)window->inner)->window_handle, HWND_TOP, window->info.x, window->info.y, 0, 0, SWP_NOSIZE | SWP_SHOWWINDOW);
+void PxiUpdateSize(PxContext *context, PxWindow *window, int *new_size) {
+    window->info.width = new_size[0];
+    window->info.height = new_size[1];
+    WINBOOL ret = SetWindowPos(((window_t*)window->inner)->window_handle,
+        HWND_TOP,
+        0, 0,
+        window->info.width, window->info.height,
+        SWP_NOMOVE | SWP_SHOWWINDOW
+    );
     ERRCHECK_V(ret, *context->result, PX_FAILED_OSCALL);
 }
 
-void PxiUpdateWidth(PxContext *context, PxWindow *window, int new_width) {
-    window->info.width = new_width;
-    WINBOOL ret = SetWindowPos(((window_t*)window->inner)->window_handle, HWND_TOP, 0, 0, window->info.width, window->info.height, SWP_NOMOVE | SWP_SHOWWINDOW);
-    ERRCHECK_V(ret, *context->result, PX_FAILED_OSCALL);
-}
-
-void PxiUpdateHeight(PxContext *context, PxWindow *window, int new_height) {
-    window->info.height = new_height;
-    WINBOOL ret = SetWindowPos(((window_t*)window->inner)->window_handle, HWND_TOP, 0, 0, window->info.width, window->info.height, SWP_NOMOVE | SWP_SHOWWINDOW);
+void PxiUpdateRect(PxContext *context, PxWindow *window, int *new_rect) {
+    window->info.width = new_rect[0];
+    window->info.height = new_rect[1];
+    window->info.x = new_rect[0];
+    window->info.y = new_rect[1];
+    WINBOOL ret = SetWindowPos(
+        ((window_t*)window->inner)->window_handle,
+        HWND_TOP,
+        window->info.x, window->info.y,
+        window->info.width, window->info.height,
+        SWP_SHOWWINDOW
+    );
     ERRCHECK_V(ret, *context->result, PX_FAILED_OSCALL);
 }
 

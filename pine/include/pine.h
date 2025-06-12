@@ -15,10 +15,10 @@ typedef struct {
 enum PxWindowParam {
     PX_PARAM_SHOULD_CLOSE = 0,
 
-    PX_PARAM_WIDTH,
-    PX_PARAM_HEIGHT,
-    PX_PARAM_X,
-    PX_PARAM_Y,
+    PX_PARAM_SIZE,
+    PX_PARAM_POSITION,
+    PX_PARAM_RECT,
+
     PX_PARAM_TITLE,
 };
 
