@@ -16,6 +16,7 @@ char *PxErrorToString(PxResult res) {
         case PX_FAILED_WINDOW_CREATION: return "Failed to create window";
         case PX_FAILED_HANDLE_FETCH: return "Failed to fetch handle";
         case PX_FAILED_STRING: return "Failed string operation";
+        case PX_FAILED_OSCALL: return "Failed call to Operating System";
 
         case PX_WRONG_PARAM: return "Invalid parameter";
     }
