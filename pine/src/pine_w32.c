@@ -126,7 +126,7 @@ PxWindow *PxCreateWindow(PxContext *context, const PxWindowInfo info, PxWindow *
 }
 
 void PxPollEvents(PxWindow *window) {
-    GetMessageA(&((window_t*)window->inner)->msg, NULL, 0, 0);
+    PeekMessageA(&((window_t*)window->inner)->msg, NULL, 0, 0, PM_REMOVE);
     TranslateMessage(&((window_t*)window->inner)->msg);
     DispatchMessageA(&((window_t*)window->inner)->msg);
 }
