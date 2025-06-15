@@ -17,17 +17,35 @@ int main() {
     PxContext *context = PxCreateContext(&res);
     ERRCHECK(context, res)
 
-    const PxDisplayInfo disp = PxGetDisplay(context);
-    ERRCHECK_(res);
-
     PxWindow *win = PxCreateWindow(context, params, NULL);
     ERRCHECK(win, res)
 
-    int screen_center_x = (disp.width / 2) - (params.width / 2);
+    PxEvent event = {0};
+    int running = 1;
+    while (running) {
+        while (PxPollEvents(win, &event)) {
+            switch (event.type) {
+                case PX_EVENT_WINDOW_MOVE:
+                    int *pos = (int*)PxGetWindowParam(context, win, PX_PARAM_POSITION);
+                    printf("Window moved! %i, %i\n", pos[0], pos[1]);
+                    break;
 
-    while (!PxGetWindowParamI(context, win, PX_PARAM_SHOULD_CLOSE)) {
-        PxSetWindowParam(context, win, PX_PARAM_POSITION, (int[2]){screen_center_x, 0});
-        PxPollEvents(win);
+                case PX_EVENT_RESIZE:
+                    int *size = (int*)PxGetWindowParam(context, win, PX_PARAM_SIZE);
+                    printf("Window resized! %i, %i\n", size[0], size[1]);
+                    break;
+
+                case PX_EVENT_KEYUP:
+                    printf("keyup: %c\n", (char)event.keycode);
+                    break;
+
+                case PX_EVENT_CLOSE:
+                    running = 0;
+                    break;
+
+                default: break;
+            }
+        }
     }
 
     PxDestroyContext(context);

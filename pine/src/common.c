@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #endif // PX_INCLUDE_STDLIB
 
+
 int ptrtoi(int *a) {return *a;}
 
 char *PxErrorToString(PxResult res) {
@@ -41,6 +42,8 @@ void *PxGetWindowParam(PxContext *context, PxWindow *window, enum PxWindowParam 
 
         case PX_PARAM_TITLE: return (void*)window->info.title;
 
+        case PX_PARAM_CONTEXT: return (void*)window->ctx;
+
         default:
             *context->result = PX_INVALID_PARAM;
             return NULL;
@@ -58,6 +61,8 @@ void PxSetWindowParam(PxContext *context, PxWindow *window, enum PxWindowParam p
 
         case PX_PARAM_TITLE: PxiUpdateTitle(context, window, (char*)value); return;
 
+        case PX_PARAM_CONTEXT: *context->result = PX_INVALID_PARAM; return;
+
         default:
             *context->result = PX_INVALID_PARAM;
             return;
@@ -67,5 +72,40 @@ void PxSetWindowParam(PxContext *context, PxWindow *window, enum PxWindowParam p
 void PxDestroyWindow(PxWindow *window) {
     PxFree(window->inner);
     PxFree(window->info.title);
+    PxFree(window->ecache.data);
     PxFree(window);
+}
+
+PxiEventStack PxiCreateEventStack(PxContext *context) {
+    PxiEventStack ret = {
+        PxMalloc(sizeof(PxEvent)),
+        0,
+        sizeof(PxEvent)
+    };
+    ERRCHECK_T(ret.data, *context->result, PX_FAILED_ALLOC, PxiEventStack);
+    return ret;
+}
+
+void PxiPushEventStack(PxContext *context, PxiEventStack *cache, PxEvent ev) {
+    if ((cache->len + 1) * sizeof(PxEvent) > cache->bytelen) {
+        cache->data = PxRealloc(cache->data, (cache->len + 1) * sizeof(PxEvent));
+        ERRCHECK_V(cache->data, *context->result, PX_FAILED_ALLOC);
+    }
+    cache->data[cache->len++] = ev;
+}
+
+PxEvent PxiPopEventStack(PxiEventStack *cache) {
+    return cache->data[--cache->len];
+}
+
+void *PxGetEventParam(PxEvent event) {
+    switch (event.type)
+    {
+    case PX_EVENT_CLOSE: return NULL;
+    case PX_EVENT_RESIZE: return NULL;
+    case PX_EVENT_WINDOW_MOVE: return NULL;
+    
+    default:
+        return NULL;
+    }
 }

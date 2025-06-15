@@ -14,16 +14,43 @@
 #endif // PX_INCLUDE_STDDEF
 
 #include <stdio.h>
+#include <assert.h>
 
 #include "common.h"
 #include "common_w32.h"
 
 LRESULT CALLBACK wnd_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     PxWindow *self = (PxWindow*)GetWindowLongPtrA(hwnd, GWLP_USERDATA);
+    PxEvent event = {0};
     switch (uMsg)
     {
-        case WM_NCCREATE:
-            return PX_TRUE;
+        case WM_NCCREATE: return PX_TRUE;
+        
+        case WM_SIZE:
+            self->info.width = LOWORD(lParam);
+            self->info.height = HIWORD(lParam);
+            event.type = PX_EVENT_RESIZE;
+            PxiPushEventStack(self->ctx, &self->ecache, event);
+            break;
+        
+        case WM_MOVE:
+            self->info.x = LOWORD(lParam);
+            self->info.y = HIWORD(lParam);
+            event.type = PX_EVENT_WINDOW_MOVE;
+            PxiPushEventStack(self->ctx, &self->ecache, event);
+            break;
+
+        case WM_KEYDOWN:
+            event.type = PX_EVENT_KEYDOWN;
+            event.keycode = (int)wParam;
+            PxiPushEventStack(self->ctx, &self->ecache, event);
+            break;
+
+        case WM_KEYUP:
+            event.type = PX_EVENT_KEYUP;
+            event.keycode = (int)wParam;
+            PxiPushEventStack(self->ctx, &self->ecache, event);
+            break;
 
         case WM_DESTROY:
             PostQuitMessage(0);
@@ -31,17 +58,9 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
             
         case WM_CLOSE:
             self->should_close = PX_TRUE;
+            event.type = PX_EVENT_CLOSE;
+            PxiPushEventStack(self->ctx, &self->ecache, event);
             return PX_FALSE;
-            
-        case WM_SIZE:
-            self->info.width = LOWORD(lParam);
-            self->info.height = HIWORD(lParam);
-            break;
-        
-        case WM_MOVE:
-            self->info.x = LOWORD(lParam);
-            self->info.y = HIWORD(lParam);
-            break;
 
         default: break;
     }
@@ -122,13 +141,25 @@ PxWindow *PxCreateWindow(PxContext *context, const PxWindowInfo info, PxWindow *
     ERRCHECK_N(ret->info.title, *context->result, PX_FAILED_ALLOC)
     strcpy(ret->info.title, info.title);
 
+    ret->ecache = PxiCreateEventStack(context);
+    ERRCHECK_N(context->result, context->result, context->result);
+
     return ret;
 }
 
-void PxPollEvents(PxWindow *window) {
-    PeekMessageA(&((window_t*)window->inner)->msg, NULL, 0, 0, PM_REMOVE);
-    TranslateMessage(&((window_t*)window->inner)->msg);
-    DispatchMessageA(&((window_t*)window->inner)->msg);
+int PxPollEvents(PxWindow *window, PxEvent *event) {
+    window_t *iwin = (window_t*)window->inner;
+    event->type = __PX_EVENT_NONE__;
+    
+    if (window->ecache.len) *event = PxiPopEventStack(&window->ecache);
+    if (PeekMessageA(&iwin->msg, NULL, 0, 0, PM_REMOVE)) {
+        TranslateMessage(&iwin->msg);
+        DispatchMessageA(&iwin->msg);
+        if (window->ecache.len) *event = PxiPopEventStack(&window->ecache);
+        return PX_TRUE;
+    }
+    
+    return PX_FALSE;
 }
 
 PxDisplayInfo PxGetDisplay(PxContext *context) {

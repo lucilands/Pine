@@ -13,13 +13,16 @@
 
 #define PX_SUCCESS 0
 
+// Errors
 #define PX_FAILED_ALLOC 1
 #define PX_FAILED_WINDOW_CREATION 2
 #define PX_FAILED_HANDLE_FETCH 3
 #define PX_FAILED_STRING 4
 #define PX_FAILED_OSCALL 5
 
+// Warnings
 #define PX_INVALID_PARAM 4000
+#define PX_UNKNOWN_EVENT 4001
 
 #define PX_TRUE 1
 #define PX_FALSE 0
@@ -64,6 +67,11 @@ typedef PxUint16 PxResult;
 #define PX_INCLUDE_STDLIB
 #define PxMalloc(...) malloc(__VA_ARGS__)
 #endif // PxMalloc
+
+#ifndef PxRealloc
+#define PX_INCLUDE_STDLIB
+#define PxRealloc(...) realloc(__VA_ARGS__)
+#endif // PxRealloc
 
 #ifndef PxFree
 #define PX_INCLUDE_STDLIB
