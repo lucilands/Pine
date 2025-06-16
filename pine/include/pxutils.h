@@ -1,7 +1,7 @@
 #ifndef _PXUTILS_H
 #define _PXUTILS_H
 
-#if defined(_WIN32) | defined (_WIN64)
+#if defined(_WIN32) || defined (_WIN64) || defined(__CYGWIN__)
     #define PX_WINDOWS
     #define PX_WNDCLS_NAME "PineWNDCLS"
     #define PX_WNDCLS_NAME_L L"PineWNDCLS"
