@@ -27,11 +27,6 @@ PxResult PxGetContextResult(PxContext *context) {
     return *context->result;
 }
 
-void PxDestroyContext(PxContext *context) {
-    PxFree(context->inner);
-    PxFree(context);
-}
-
 void *PxGetWindowParam(PxContext *context, PxWindow *window, enum PxWindowParam param) {
     switch (param) {
         case PX_PARAM_SHOULD_CLOSE: return (void*)&window->should_close;
@@ -69,12 +64,6 @@ void PxSetWindowParam(PxContext *context, PxWindow *window, enum PxWindowParam p
     }
 }
 
-void PxDestroyWindow(PxWindow *window) {
-    PxFree(window->inner);
-    PxFree(window->info.title);
-    PxFree(window->ecache.data);
-    PxFree(window);
-}
 
 PxiEventStack PxiCreateEventStack(PxContext *context) {
     PxiEventStack ret = {

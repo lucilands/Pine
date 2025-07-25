@@ -177,3 +177,15 @@ PxDisplayInfo PxGetDisplay(PxContext *context) {
         num_monitors
     };
 }
+
+void PxDestroyWindow(PxWindow *window) {
+    PxFree(window->inner);
+    PxFree(window->info.title);
+    PxFree(window->ecache.data);
+    PxFree(window);
+}
+
+void PxDestroyContext(PxContext *context) {
+    PxFree(context->inner);
+    PxFree(context);
+}

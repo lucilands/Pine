@@ -1,6 +1,9 @@
 CFLAGS=-Wall -Wextra -Ipine/include -ggdb
 LDFLAGS=-Lpine/lib/ -lpine -ggdb
 
+ifneq ($(OS),Windows_NT)
+	LDFLAGS+=-lX11
+endif
 
 SOURCES=$(wildcard src/*.c)
 OBJECTS=$(addprefix build/,$(notdir $(SOURCES:%.c=%.o)))

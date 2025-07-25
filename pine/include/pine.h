@@ -59,6 +59,8 @@ PxResult PxGetContextResult(PxContext *context);
 
 int PxPollEvents(PxWindow *window, PxEvent *ev);
 
+void PxCloseWindow(PxContext *context, PxWindow *window);
+
 void PxDestroyContext(PxContext *context);
 void PxDestroyWindow(PxWindow *window);
 

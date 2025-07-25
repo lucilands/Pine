@@ -48,7 +48,7 @@ int main() {
         }
     }
 
-    PxDestroyContext(context);
     PxDestroyWindow(win);
+    PxDestroyContext(context);
     return 0;
 }
