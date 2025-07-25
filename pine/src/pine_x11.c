@@ -71,18 +71,18 @@ PxWindow *PxCreateWindow(PxContext *context, const PxWindowInfo info, PxWindow *
     );
     ERRCHECK_N(win->win, *context->result, PX_FAILED_OSCALL);
     XStoreName(ctx->disp, win->win, info.title);
-    XMapWindow(ctx->disp, win->win);
-
-    win->close_event = XInternAtom(ctx->disp, "WM_DELETE_WINDOW", PX_FALSE);
-    XSetWMProtocols(ctx->disp, win->win, &win->close_event, 1);
 
     XFlush(ctx->disp);
 
     ret->should_close = PX_FALSE;
 
-    XGrabKeyboard(ctx->disp, DefaultRootWindow(ctx->disp), 0, GrabModeAsync, GrabModeAsync, CurrentTime);
-    XSelectInput(ctx->disp, DefaultRootWindow(ctx->disp), KeyPressMask | KeyReleaseMask | StructureNotifyMask);
+    XGrabKeyboard(ctx->disp, win->win, 0, GrabModeAsync, GrabModeAsync, CurrentTime);
+    XSelectInput(ctx->disp, win->win, KeyPressMask | KeyReleaseMask | ExposureMask | StructureNotifyMask);
 
+    XMapWindow(ctx->disp, win->win);
+
+    win->close_event = XInternAtom(ctx->disp, "WM_DELETE_WINDOW", PX_FALSE);
+    XSetWMProtocols(ctx->disp, win->win, &win->close_event, 1);
     return ret;
 }
 
@@ -100,6 +100,8 @@ int PxPollEvents(PxWindow *window, PxEvent *ev) {
 
     int num_ready_fds = select(ctx->x11_fd + 1, &win->in_fds, NULL, NULL, &win->tv);
 
+    XConfigureEvent xce = win->ev.xconfigure;
+
     if (num_ready_fds > 0) {
         XNextEvent(ctx->disp, &win->ev);
         
@@ -115,7 +117,16 @@ int PxPollEvents(PxWindow *window, PxEvent *ev) {
                 break;
 
             case ConfigureNotify:
-                // TODO
+                if (xce.width != window->info.width || xce.height != window->info.height) {
+                    (*ev).type = PX_EVENT_RESIZE;
+                    PxiUpdateSize(window->ctx, window, (int[2]){xce.width > 0 ? xce.width : 1, xce.height > 0 ? xce.height : 1});
+                    break;
+                }
+                else if (xce.x != window->info.x || xce.y != window->info.y) {
+                    (*ev).type = PX_EVENT_WINDOW_MOVE;
+                    PxiUpdatePosition(window->ctx, window, (int[2]){xce.x, xce.y});
+                    break;
+                }
                 break;
             
             case ClientMessage:
@@ -143,14 +154,14 @@ void PxiUpdatePosition(PxContext *context, PxWindow *window, int *new_position) 
     window->info.x = new_position[0];
     window->info.y = new_position[1];
 
-    XMoveResizeWindow(((context_t*)context->inner)->disp, ((window_t*)window->inner)->win, window->info.x, window->info.y, window->info.width, window->info.height);
+    XMoveWindow(((context_t*)context->inner)->disp, ((window_t*)window->inner)->win, window->info.x, window->info.y);
 }
 
 void PxiUpdateSize(PxContext *context, PxWindow *window, int *new_size) {
     window->info.width = new_size[0];
     window->info.height = new_size[1];
 
-    XMoveResizeWindow(((context_t*)context->inner)->disp, ((window_t*)window->inner)->win, window->info.x, window->info.y, window->info.width, window->info.height);
+    XResizeWindow(((context_t*)context->inner)->disp, ((window_t*)window->inner)->win, window->info.width, window->info.height);
 }
 
 void PxiUpdateRect(PxContext *context, PxWindow *window, int *new_rect) {
