@@ -29,6 +29,7 @@ typedef struct {
     fd_set in_fds;
 } window_t;
 
+#define WHY_THE_FUCK_DOES_X11_GIVE_ME_A_ZERO_VALUE_BACK_IF_IT_CANT_TAKE_ONE_ASSERT_MACRO xce.width > 0 ? xce.width : 1, xce.height > 0 ? xce.height : 1
 
 PxContext *PxCreateContext(PxResult *res) {
     PxContext *ret = PxMalloc(sizeof(struct PxContext_internal));
@@ -119,7 +120,7 @@ int PxPollEvents(PxWindow *window, PxEvent *ev) {
             case ConfigureNotify:
                 if (xce.width != window->info.width || xce.height != window->info.height) {
                     (*ev).type = PX_EVENT_RESIZE;
-                    PxiUpdateSize(window->ctx, window, (int[2]){xce.width > 0 ? xce.width : 1, xce.height > 0 ? xce.height : 1});
+                    PxiUpdateSize(window->ctx, window, (int[2]){WHY_THE_FUCK_DOES_X11_GIVE_ME_A_ZERO_VALUE_BACK_IF_IT_CANT_TAKE_ONE_ASSERT_MACRO});
                     break;
                 }
                 else if (xce.x != window->info.x || xce.y != window->info.y) {
