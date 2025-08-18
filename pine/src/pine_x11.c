@@ -1,4 +1,5 @@
 #include <pine.h>
+#include <X11/X.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 
@@ -11,6 +12,10 @@
 #include <stdlib.h>
 #endif // PX_INCLUDE_STDLIB
 
+#include <GL/gl.h>
+#include <GL/glx.h>
+
+
 #include <string.h>
 
 #include "common.h"
@@ -18,18 +23,27 @@
 typedef struct {
     Display *disp;
     unsigned int x11_fd;
+
+    XVisualInfo *vi;
+    Window root;
+    GLXContext glc;
 } context_t;
 
 typedef struct {
     Window win;
     Atom close_event;
     XEvent ev;
+    XSetWindowAttributes swa;
+    Colormap cmap;
 
     struct timeval tv;
     fd_set in_fds;
 } window_t;
 
+GLint att[] = { GLX_RGBA, GLX_DEPTH_SIZE, 24, GLX_DOUBLEBUFFER, None };
+
 #define WHY_THE_FUCK_DOES_X11_GIVE_ME_A_ZERO_VALUE_BACK_IF_IT_CANT_TAKE_ONE_ASSERT_MACRO xce.width > 0 ? xce.width : 1, xce.height > 0 ? xce.height : 1
+
 
 PxContext *PxCreateContext(PxResult *res) {
     PxContext *ret = PxMalloc(sizeof(struct PxContext_internal));
@@ -42,9 +56,15 @@ PxContext *PxCreateContext(PxResult *res) {
     context_t *ctx = (context_t*)ret->inner;
     
     ctx->disp = XOpenDisplay(NULL);
+    ctx->root = DefaultRootWindow(ctx->disp);
     ERRCHECK_N(ctx->disp, *res, PX_FAILED_OSCALL);
 
     ctx->x11_fd = ConnectionNumber(ctx->disp);
+
+    ctx->vi = glXChooseVisual(ctx->disp, DefaultScreen(ctx->disp), att);
+    ERRCHECK_N(ctx->vi, *res, PX_FAILED_VISUAL);
+    
+    ctx->glc = glXCreateContext(ctx->disp, ctx->vi, NULL, GL_TRUE);
 
     return ret;
 }
@@ -52,6 +72,7 @@ PxContext *PxCreateContext(PxResult *res) {
 PxWindow *PxCreateWindow(PxContext *context, const PxWindowInfo info, PxWindow *parent) {
     PxWindow *ret = PxMalloc(sizeof(struct PxWindow_internal));
     ERRCHECK_N(ret, *context->result, PX_FAILED_ALLOC);
+    PxMemset(ret, 0, sizeof(struct PxWindow_internal));
 
     ret->inner = PxMalloc(sizeof(window_t));
     ERRCHECK_N(ret, *context->result, PX_FAILED_ALLOC);
@@ -60,30 +81,47 @@ PxWindow *PxCreateWindow(PxContext *context, const PxWindowInfo info, PxWindow *
 
     window_t *win = (window_t*)ret->inner;
     context_t *ctx = (context_t*)context->inner;
+   
+    win->cmap = XCreateColormap(ctx->disp, ctx->root, ctx->vi->visual, AllocNone);
+    
+    win->swa = (XSetWindowAttributes) {0};
+    win->swa.colormap = win->cmap;
+    win->swa.event_mask = ExposureMask | KeyPressMask | KeyReleaseMask | StructureNotifyMask;
 
-    win->win = XCreateSimpleWindow(
+    win->win = XCreateWindow(
         ctx->disp,
-        win->win ? ((window_t*)parent->inner)->win : RootWindow(ctx->disp, 0),
+        parent ? ((window_t*)parent->inner)->win : ctx->root,
+        info.x, info.y,
+        info.width, info.height,
+        1,
+        ctx->vi->depth,
+        InputOutput,
+        ctx->vi->visual,
+        CWColormap | CWEventMask,
+        &win->swa
+    );
+    ERRCHECK_N(win->win, *context->result, PX_FAILED_OSCALL);
+
+    ret->should_close = PX_FALSE;
+    /*win->win = XCreateSimpleWindow(
+        ctx->disp,
+        parent ? ((window_t*)parent->inner)->win : ctx->root,
         info.x, info.y,
         info.width, info.height,
         0,
         0x0,
         0x0
-    );
-    ERRCHECK_N(win->win, *context->result, PX_FAILED_OSCALL);
-    XStoreName(ctx->disp, win->win, info.title);
-
-    XFlush(ctx->disp);
-
-    ret->should_close = PX_FALSE;
-
-    XGrabKeyboard(ctx->disp, win->win, 0, GrabModeAsync, GrabModeAsync, CurrentTime);
-    XSelectInput(ctx->disp, win->win, KeyPressMask | KeyReleaseMask | ExposureMask | StructureNotifyMask);
+    );*/
 
     XMapWindow(ctx->disp, win->win);
+    XStoreName(ctx->disp, win->win, info.title);
+
+    //XFlush(ctx->disp);
 
     win->close_event = XInternAtom(ctx->disp, "WM_DELETE_WINDOW", PX_FALSE);
     XSetWMProtocols(ctx->disp, win->win, &win->close_event, 1);
+    
+    glXMakeCurrent(ctx->disp, win->win, ctx->glc);
     return ret;
 }
 
@@ -136,7 +174,6 @@ int PxPollEvents(PxWindow *window, PxEvent *ev) {
                 }
                 break;
 
-
             default: break; 
         }
     }
@@ -179,7 +216,6 @@ void PxDestroyWindow(PxWindow *window) {
     context_t *ctx = (context_t*)window->ctx->inner;
     XUnmapWindow(ctx->disp, win->win);
     XDestroyWindow(ctx->disp, win->win);
-    XCloseDisplay(ctx->disp);
 
     PxFree(window->inner);
     PxFree(window->info.title);
@@ -188,6 +224,8 @@ void PxDestroyWindow(PxWindow *window) {
 }
 
 void PxDestroyContext(PxContext *context) {
+    glXDestroyContext(((context_t*)context->inner)->disp, ((context_t*)context->inner)->glc);
+    XCloseDisplay(((context_t*)context->inner)->disp);
     PxFree(context->inner);
     PxFree(context);
 }

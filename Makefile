@@ -2,7 +2,7 @@ CFLAGS=-Wall -Wextra -Ipine/include -ggdb
 LDFLAGS=-Lpine/lib/ -lpine -ggdb
 
 ifneq ($(OS),Windows_NT)
-	LDFLAGS+=-lX11
+	LDFLAGS+=-lX11 -lGL -lGLU
 endif
 
 SOURCES=$(wildcard src/*.c)

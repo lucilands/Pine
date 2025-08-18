@@ -19,6 +19,7 @@
 #define PX_FAILED_HANDLE_FETCH 3
 #define PX_FAILED_STRING 4
 #define PX_FAILED_OSCALL 5
+#define PX_FAILED_VISUAL 6
 
 // Warnings
 #define PX_INVALID_PARAM 4000

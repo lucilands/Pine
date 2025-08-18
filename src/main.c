@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <pine.h>
 
+#include <GL/glu.h>
+
 
 #define ERRCHECK(var_to_check, res) if (!var_to_check) {printf("[ERROR]: %s\n", PxErrorToString(res)); exit(res);}
 #define ERRCHECK_(res) if (res) {printf("[ERROR]: %s\n", PxErrorToString(res)); exit(res);}
@@ -32,6 +34,7 @@ int main() {
 
                 case PX_EVENT_RESIZE:
                     int *size = (int*)PxGetWindowParam(context, win, PX_PARAM_SIZE);
+                    glViewport(0, 0, size[0], size[1]);
                     printf("Window resized! %i, %i\n", size[0], size[1]);
                     break;
 
@@ -46,6 +49,7 @@ int main() {
                 default: break;
             }
         }
+
     }
 
     PxDestroyWindow(win);
