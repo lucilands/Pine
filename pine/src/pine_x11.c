@@ -8,6 +8,8 @@
 #include <sys/types.h>
 #include <sys/select.h>
 
+#include <stdio.h>
+
 #ifdef PX_INCLUDE_STDLIB
 #include <stdlib.h>
 #endif // PX_INCLUDE_STDLIB
@@ -103,7 +105,7 @@ PxWindow *PxCreateWindow(PxContext *context, const PxWindowInfo info, PxWindow *
     ERRCHECK_N(win->win, *context->result, PX_FAILED_OSCALL);
 
     ret->should_close = PX_FALSE;
-    /*win->win = XCreateSimpleWindow(
+    win->win = XCreateSimpleWindow(
         ctx->disp,
         parent ? ((window_t*)parent->inner)->win : ctx->root,
         info.x, info.y,
@@ -111,15 +113,17 @@ PxWindow *PxCreateWindow(PxContext *context, const PxWindowInfo info, PxWindow *
         0,
         0x0,
         0x0
-    );*/
+    );
 
     XMapWindow(ctx->disp, win->win);
     XStoreName(ctx->disp, win->win, info.title);
 
-    //XFlush(ctx->disp);
+    XFlush(ctx->disp);
 
     win->close_event = XInternAtom(ctx->disp, "WM_DELETE_WINDOW", PX_FALSE);
     XSetWMProtocols(ctx->disp, win->win, &win->close_event, 1);
+
+    XSelectInput(ctx->disp, win->win, ExposureMask | KeyPressMask | KeyReleaseMask | StructureNotifyMask);
     
     glXMakeCurrent(ctx->disp, win->win, ctx->glc);
     return ret;
@@ -137,12 +141,14 @@ int PxPollEvents(PxWindow *window, PxEvent *ev) {
     win->tv.tv_usec = 10;
     win->tv.tv_sec = 0;
 
-    int num_ready_fds = select(ctx->x11_fd + 1, &win->in_fds, NULL, NULL, &win->tv);
+    select(ctx->x11_fd + 1, &win->in_fds, NULL, NULL, &win->tv);
 
     XConfigureEvent xce = win->ev.xconfigure;
 
-    if (num_ready_fds > 0) {
+    int pending = XPending(ctx->disp);
+    if (pending) {
         XNextEvent(ctx->disp, &win->ev);
+        //printf("EVENT\n");
         
         switch (win->ev.type) {            
             case KeyPress:
@@ -177,7 +183,7 @@ int PxPollEvents(PxWindow *window, PxEvent *ev) {
             default: break; 
         }
     }
-    return num_ready_fds > 0;
+    return pending;
 }
 
 void PxiUpdateTitle(PxContext *context, PxWindow *window, const char *new_title) {

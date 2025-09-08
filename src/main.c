@@ -22,7 +22,7 @@ int main() {
     PxWindow *win = PxCreateWindow(context, params, NULL);
     ERRCHECK(win, res)
 
-    PxLoadOpenGL(context, win, 4, 3);
+    //PxLoadOpenGL(context, win, 4, 3);
 
     PxEvent event = {0};
     int running = 1;
@@ -41,7 +41,7 @@ int main() {
                     break;
 
                 case PX_EVENT_KEYUP:
-                    if (event.keycode == PX_KEY_UNKNOWN) {printf("ERROR: Unknown keycode\n"); break;}
+                    if (event.keycode == PX_KEY_UNKNOWN) {printf("ERROR: Unknown keycode (%i)\n", (int)event.keycode); break;}
                     printf("keyup: %i: %c\n", event.keycode, (char)event.keycode);
                     break;
 
