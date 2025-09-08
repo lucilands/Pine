@@ -53,6 +53,7 @@ PxWindow *PxCreateWindow(PxContext *context, const PxWindowInfo info, PxWindow *
 void *PxGetWindowParam(PxContext *context, PxWindow *window, enum PxWindowParam param);
 void *PxGetEventParam(PxEvent event);
 void PxSetWindowParam(PxContext *context, PxWindow *window, enum PxWindowParam param, void *value);
+void PxLoadOpenGL(PxContext *context, PxWindow *window, unsigned short version_major, unsigned short version_minor);
 
 char *PxErrorToString(PxResult res);
 PxResult PxGetContextResult(PxContext *context);

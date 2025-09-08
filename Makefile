@@ -1,8 +1,12 @@
+MAKEFLAGS += --no-print-directory
+
 CFLAGS=-Wall -Wextra -Ipine/include -ggdb
 LDFLAGS=-Lpine/lib/ -lpine -ggdb
 
 ifneq ($(OS),Windows_NT)
 	LDFLAGS+=-lX11 -lGL -lGLU
+else
+	LDFLAGS+=-lopengl32 -lWs2_32 -lole32 -lcomctl32 -lgdi32 -lcomdlg32 -luuid
 endif
 
 SOURCES=$(wildcard src/*.c)
