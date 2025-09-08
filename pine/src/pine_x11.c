@@ -8,8 +8,6 @@
 #include <sys/types.h>
 #include <sys/select.h>
 
-#include <stdio.h>
-
 #ifdef PX_INCLUDE_STDLIB
 #include <stdlib.h>
 #endif // PX_INCLUDE_STDLIB
@@ -28,7 +26,8 @@ typedef struct {
 
     XVisualInfo *vi;
     Window root;
-    GLXContext glc;
+    GLXContext gl_loadctx;
+    GLXContext gl_ctx;
 } context_t;
 
 typedef struct {
@@ -66,7 +65,7 @@ PxContext *PxCreateContext(PxResult *res) {
     ctx->vi = glXChooseVisual(ctx->disp, DefaultScreen(ctx->disp), att);
     ERRCHECK_N(ctx->vi, *res, PX_FAILED_VISUAL);
     
-    ctx->glc = glXCreateContext(ctx->disp, ctx->vi, NULL, GL_TRUE);
+    ctx->gl_loadctx = glXCreateContext(ctx->disp, ctx->vi, NULL, GL_TRUE);
 
     return ret;
 }
@@ -105,15 +104,6 @@ PxWindow *PxCreateWindow(PxContext *context, const PxWindowInfo info, PxWindow *
     ERRCHECK_N(win->win, *context->result, PX_FAILED_OSCALL);
 
     ret->should_close = PX_FALSE;
-    win->win = XCreateSimpleWindow(
-        ctx->disp,
-        parent ? ((window_t*)parent->inner)->win : ctx->root,
-        info.x, info.y,
-        info.width, info.height,
-        0,
-        0x0,
-        0x0
-    );
 
     XMapWindow(ctx->disp, win->win);
     XStoreName(ctx->disp, win->win, info.title);
@@ -125,7 +115,7 @@ PxWindow *PxCreateWindow(PxContext *context, const PxWindowInfo info, PxWindow *
 
     XSelectInput(ctx->disp, win->win, ExposureMask | KeyPressMask | KeyReleaseMask | StructureNotifyMask);
     
-    glXMakeCurrent(ctx->disp, win->win, ctx->glc);
+    glXMakeCurrent(ctx->disp, win->win, ctx->gl_loadctx);
     return ret;
 }
 
@@ -148,7 +138,6 @@ int PxPollEvents(PxWindow *window, PxEvent *ev) {
     int pending = XPending(ctx->disp);
     if (pending) {
         XNextEvent(ctx->disp, &win->ev);
-        //printf("EVENT\n");
         
         switch (win->ev.type) {            
             case KeyPress:
@@ -229,8 +218,12 @@ void PxDestroyWindow(PxWindow *window) {
     PxFree(window);
 }
 
+void PxLoadOpenGL(PxContext *context, PxWindow *window, unsigned short version_major, unsigned short version_minor) {
+
+}
+
 void PxDestroyContext(PxContext *context) {
-    glXDestroyContext(((context_t*)context->inner)->disp, ((context_t*)context->inner)->glc);
+    glXDestroyContext(((context_t*)context->inner)->disp, ((context_t*)context->inner)->gl_loadctx);
     XCloseDisplay(((context_t*)context->inner)->disp);
     PxFree(context->inner);
     PxFree(context);
