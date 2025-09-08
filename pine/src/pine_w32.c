@@ -1,6 +1,6 @@
 #include <pine.h>
 #include <windows.h>
-#include <gl/GL.h>
+#include <GL/gl.h>
 
 #ifdef PX_INCLUDE_STDLIB
 #include <stdlib.h>
@@ -213,6 +213,10 @@ PxDisplayInfo PxGetDisplay(PxContext *context) {
         width, height,
         num_monitors
     };
+}
+
+void PxSwapBuffers(PxWindow *window) {
+    wglSwapLayerBuffers(((window_t*)window->inner)->device_context, WGL_SWAP_MAIN_PLANE);
 }
 
 void PxLoadOpenGL(PxContext *context, PxWindow *window, unsigned short version_major, unsigned short version_minor) {

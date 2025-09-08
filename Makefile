@@ -4,9 +4,9 @@ CFLAGS=-Wall -Wextra -Ipine/include -ggdb
 LDFLAGS=-Lpine/lib/ -lpine -ggdb
 
 ifneq ($(OS),Windows_NT)
-	LDFLAGS+=-lX11 -lGL -lGLU
+	LDFLAGS+=-lX11 -lGL -lGLU -lXrender
 else
-	LDFLAGS+=-lopengl32 -lWs2_32 -lole32 -lcomctl32 -lgdi32 -lcomdlg32 -luuid
+	LDFLAGS+=-lopengl32 -lole32 -lcomctl32 -lgdi32 -lcomdlg32 -luuid
 endif
 
 SOURCES=$(wildcard src/*.c)

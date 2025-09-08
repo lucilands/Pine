@@ -2,6 +2,7 @@
 #include <X11/X.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
+#include <X11/extensions/Xrender.h>
 
 #include <unistd.h>
 #include <sys/time.h>
@@ -26,9 +27,11 @@ typedef struct {
 
     XVisualInfo *vi;
     Window root;
-    GLXContext gl_loadctx;
-    GLXContext gl_ctx;
+
+    GLXFBConfig fbconfig;
 } context_t;
+
+typedef GLXContext (*glXCreateContextAttribsARBProc)(Display*, GLXFBConfig, GLXContext, Bool, const int*);
 
 typedef struct {
     Window win;
@@ -36,12 +39,26 @@ typedef struct {
     XEvent ev;
     XSetWindowAttributes swa;
     Colormap cmap;
-
+    
     struct timeval tv;
     fd_set in_fds;
+    
+    GLXContext gl_loadctx;
+    glXCreateContextAttribsARBProc gl_loadproc;
+
+    GLXContext gl_ctx;
 } window_t;
 
 GLint att[] = { GLX_RGBA, GLX_DEPTH_SIZE, 24, GLX_DOUBLEBUFFER, None };
+static int VisData[] = {
+GLX_RENDER_TYPE, GLX_RGBA_BIT,
+    GLX_DOUBLEBUFFER, True,
+    GLX_RED_SIZE, 1,
+    GLX_GREEN_SIZE, 1,
+    GLX_BLUE_SIZE, 1,
+    GLX_DEPTH_SIZE, 1,
+    None
+};
 
 #define WHY_THE_FUCK_DOES_X11_GIVE_ME_A_ZERO_VALUE_BACK_IF_IT_CANT_TAKE_ONE_ASSERT_MACRO xce.width > 0 ? xce.width : 1, xce.height > 0 ? xce.height : 1
 
@@ -62,10 +79,19 @@ PxContext *PxCreateContext(PxResult *res) {
 
     ctx->x11_fd = ConnectionNumber(ctx->disp);
 
-    ctx->vi = glXChooseVisual(ctx->disp, DefaultScreen(ctx->disp), att);
-    ERRCHECK_N(ctx->vi, *res, PX_FAILED_VISUAL);
+    //ctx->vi = glXChooseVisual(ctx->disp, DefaultScreen(ctx->disp), att);
     
-    ctx->gl_loadctx = glXCreateContext(ctx->disp, ctx->vi, NULL, GL_TRUE);
+    
+    int numfbconfigs = 0;
+    GLXFBConfig *fbconfigs = glXChooseFBConfig(ctx->disp, DefaultScreen(ctx->disp), VisData, &numfbconfigs);
+    ERRCHECK_N(numfbconfigs > 0, *res, PX_FAILED_OSCALL);
+	ctx->fbconfig = fbconfigs[0];
+    ERRCHECK_N(ctx->fbconfig, *res, PX_FAILED_OSCALL);
+
+    ctx->vi = glXGetVisualFromFBConfig(ctx->disp, ctx->fbconfig);
+
+
+    //ctx->fbconfig = glXChooseFBConfig(ctx->disp, DefaultScreenOfDisplay(ctx->disp), ctx->vi, int *nitems)
 
     return ret;
 }
@@ -89,18 +115,20 @@ PxWindow *PxCreateWindow(PxContext *context, const PxWindowInfo info, PxWindow *
     win->swa.colormap = win->cmap;
     win->swa.event_mask = ExposureMask | KeyPressMask | KeyReleaseMask | StructureNotifyMask;
 
+    
     win->win = XCreateWindow(
         ctx->disp,
         parent ? ((window_t*)parent->inner)->win : ctx->root,
         info.x, info.y,
         info.width, info.height,
-        1,
+        CopyFromParent,
         ctx->vi->depth,
         InputOutput,
         ctx->vi->visual,
         CWColormap | CWEventMask,
         &win->swa
     );
+
     ERRCHECK_N(win->win, *context->result, PX_FAILED_OSCALL);
 
     ret->should_close = PX_FALSE;
@@ -115,7 +143,16 @@ PxWindow *PxCreateWindow(PxContext *context, const PxWindowInfo info, PxWindow *
 
     XSelectInput(ctx->disp, win->win, ExposureMask | KeyPressMask | KeyReleaseMask | StructureNotifyMask);
     
-    glXMakeCurrent(ctx->disp, win->win, ctx->gl_loadctx);
+    win->gl_loadctx = glXCreateContext(ctx->disp, ctx->vi, NULL, PX_TRUE);
+    ERRCHECK_N(win->gl_loadctx, *context->result, PX_FAILED_OGL_CONTEXT);
+    glXMakeCurrent(ctx->disp, win->win, win->gl_loadctx);
+
+    win->gl_loadproc = (glXCreateContextAttribsARBProc)glXGetProcAddressARB("glXCreateContextAttribsARB");
+    ERRCHECK_N(win->gl_loadproc, *context->result, PX_FAILED_FUNCTION_FETCH);
+    
+    glXMakeCurrent(NULL, None, 0);
+
+    XMoveWindow(ctx->disp, win->win, info.x, info.y);
     return ret;
 }
 
@@ -131,12 +168,12 @@ int PxPollEvents(PxWindow *window, PxEvent *ev) {
     win->tv.tv_usec = 10;
     win->tv.tv_sec = 0;
 
-    select(ctx->x11_fd + 1, &win->in_fds, NULL, NULL, &win->tv);
+    int event_recv = select(ctx->x11_fd + 1, &win->in_fds, NULL, NULL, &win->tv);
 
     XConfigureEvent xce = win->ev.xconfigure;
 
     int pending = XPending(ctx->disp);
-    if (pending) {
+    if (pending && event_recv) {
         XNextEvent(ctx->disp, &win->ev);
         
         switch (win->ev.type) {            
@@ -184,26 +221,29 @@ void PxiUpdateTitle(PxContext *context, PxWindow *window, const char *new_title)
 }
 
 void PxiUpdatePosition(PxContext *context, PxWindow *window, int *new_position) {
+    (void)context;
     window->info.x = new_position[0];
     window->info.y = new_position[1];
 
-    XMoveWindow(((context_t*)context->inner)->disp, ((window_t*)window->inner)->win, window->info.x, window->info.y);
+    //XMoveWindow(((context_t*)context->inner)->disp, ((window_t*)window->inner)->win, window->info.x, window->info.y);
 }
 
 void PxiUpdateSize(PxContext *context, PxWindow *window, int *new_size) {
+    (void)context;
     window->info.width = new_size[0];
     window->info.height = new_size[1];
 
-    XResizeWindow(((context_t*)context->inner)->disp, ((window_t*)window->inner)->win, window->info.width, window->info.height);
+    //XResizeWindow(((context_t*)context->inner)->disp, ((window_t*)window->inner)->win, window->info.width, window->info.height);
 }
 
 void PxiUpdateRect(PxContext *context, PxWindow *window, int *new_rect) {
+    (void)context;
     window->info.width = new_rect[0];
     window->info.height = new_rect[1];
     window->info.x = new_rect[2];
     window->info.y = new_rect[3];
 
-    XMoveResizeWindow(((context_t*)context->inner)->disp, ((window_t*)window->inner)->win, window->info.x, window->info.y, window->info.width, window->info.height);
+    //XMoveResizeWindow(((context_t*)context->inner)->disp, ((window_t*)window->inner)->win, window->info.x, window->info.y, window->info.width, window->info.height);
 }
 
 void PxDestroyWindow(PxWindow *window) {
@@ -212,6 +252,9 @@ void PxDestroyWindow(PxWindow *window) {
     XUnmapWindow(ctx->disp, win->win);
     XDestroyWindow(ctx->disp, win->win);
 
+    glXDestroyContext(((context_t*)window->ctx->inner)->disp, ((window_t*)window->inner)->gl_loadctx);
+    glXDestroyContext(((context_t*)window->ctx->inner)->disp, ((window_t*)window->inner)->gl_ctx);
+
     PxFree(window->inner);
     PxFree(window->info.title);
     //PxFree(window->ecache.data);
@@ -219,14 +262,29 @@ void PxDestroyWindow(PxWindow *window) {
 }
 
 void PxLoadOpenGL(PxContext *context, PxWindow *window, unsigned short version_major, unsigned short version_minor) {
+    int contextAttribs[] = {
+        GLX_CONTEXT_MAJOR_VERSION_ARB, version_major,
+        GLX_CONTEXT_MINOR_VERSION_ARB, version_minor,
+        GLX_CONTEXT_FLAGS_ARB, 0,
+        GLX_CONTEXT_PROFILE_MASK_ARB, GLX_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
+        //WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
+        0
+    };
 
+    ((window_t*)window->inner)->gl_ctx = ((window_t*)window->inner)->gl_loadproc(((context_t*)context->inner)->disp, ((context_t*)context->inner)->fbconfig, 0, PX_TRUE, contextAttribs);
+    ERRCHECK_V(((window_t*)window->inner)->gl_ctx, *context->result, PX_FAILED_OGL_CONTEXT)
+
+    glXMakeCurrent(((context_t*)context->inner)->disp, ((window_t*)window->inner)->win, ((window_t*)window->inner)->gl_ctx);
 }
 
 void PxDestroyContext(PxContext *context) {
-    glXDestroyContext(((context_t*)context->inner)->disp, ((context_t*)context->inner)->gl_loadctx);
     XCloseDisplay(((context_t*)context->inner)->disp);
     PxFree(context->inner);
     PxFree(context);
+}
+
+void PxSwapBuffers(PxWindow *window) {
+    glXSwapBuffers(((context_t*)window->ctx->inner)->disp, ((window_t*)window->inner)->win);
 }
 
 int PxiTransmogKeycode(int keycode) {

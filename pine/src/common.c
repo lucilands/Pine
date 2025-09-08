@@ -20,6 +20,8 @@ char *PxErrorToString(PxResult res) {
         case PX_FAILED_OSCALL: return "Failed call to Operating System";
 
         case PX_INVALID_PARAM: return "Invalid parameter";
+        case PX_FAILED_FUNCTION_FETCH: return "Failed to get function from OpenGL";
+        case PX_FAILED_OGL_CONTEXT: return "Failed to create OpenGL context";
     }
 }
 

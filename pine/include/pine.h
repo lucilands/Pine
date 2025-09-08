@@ -66,4 +66,6 @@ void PxCloseWindow(PxContext *context, PxWindow *window);
 void PxDestroyContext(PxContext *context);
 void PxDestroyWindow(PxWindow *window);
 
+void PxSwapBuffers(PxWindow *window);
+
 #endif //_PINE_H
