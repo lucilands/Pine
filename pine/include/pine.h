@@ -3,6 +3,7 @@
 // TODO: Implement PX_KEYCODE_xx
 
 #include "pxutils.h"
+#include "pxkeycodes.h"
 
 typedef struct PxContext_internal PxContext;
 typedef struct PxWindow_internal PxWindow;

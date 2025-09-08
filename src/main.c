@@ -41,7 +41,8 @@ int main() {
                     break;
 
                 case PX_EVENT_KEYUP:
-                    printf("keyup: %c\n", (char)event.keycode);
+                    if (event.keycode == PX_KEY_UNKNOWN) {printf("ERROR: Unknown keycode\n"); break;}
+                    printf("keyup: %i: %c\n", event.keycode, (char)event.keycode);
                     break;
 
                 case PX_EVENT_CLOSE:

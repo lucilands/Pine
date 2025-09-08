@@ -35,6 +35,8 @@ void PxiUpdatePosition(PxContext *context, PxWindow *window, int *new_position);
 void PxiUpdateSize(PxContext *context, PxWindow *window, int *new_size);
 void PxiUpdateRect(PxContext *context, PxWindow *window, int *new_rect);
 
+int PxiTransmogKeycode(int keycode);
+
 PxiEventStack PxiCreateEventStack(PxContext *context);
 void PxiPushEventStack(PxContext *context, PxiEventStack *cache, PxEvent ev);
 PxEvent PxiPopEventStack(PxiEventStack *cache);
