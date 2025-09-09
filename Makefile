@@ -14,7 +14,7 @@ OBJECTS=$(addprefix build/,$(notdir $(SOURCES:%.c=%.o)))
 
 TARGET=bin/demo
 
-.PHONY: all pine
+.PHONY: all pine tests
 
 all: $(TARGET)
 
@@ -31,3 +31,6 @@ pine:
 
 build bin:
 	@mkdir -p $@
+
+tests: pine
+	@cd ./tests && make
