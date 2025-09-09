@@ -27,6 +27,9 @@
 #define WGL_CONTEXT_PROFILE_MASK_ARB      0x9126
 #define WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB 0x00000002
 
+static void *libGL;
+typedef void* (APIENTRYP PFNWGLGETPROCADDRESSPROC_PRIVATE)(const char*);
+static PFNWGLGETPROCADDRESSPROC_PRIVATE GetProcAddressPtr;
 
 LRESULT CALLBACK wnd_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     PxWindow *self = (PxWindow*)GetWindowLongPtrA(hwnd, GWLP_USERDATA);
@@ -219,7 +222,23 @@ void PxSwapBuffers(PxWindow *window) {
     wglSwapLayerBuffers(((window_t*)window->inner)->device_context, WGL_SWAP_MAIN_PLANE);
 }
 
+void *PxiGLLoadproc(const char *name) {
+    if (!libGL) return NULL;
+    void *res = NULL;
+
+    if (GetProcAddressPtr) {res = GetProcAddressPtr(name);}
+    if (res == NULL) {res = GetProcAddress((HMODULE)libGL, name);}
+
+    return res;
+}
+
 void PxLoadOpenGL(PxContext *context, PxWindow *window, unsigned short version_major, unsigned short version_minor) {
+    libGL = LoadLibraryW(L"opengl32.dll");
+    ERRCHECK_V(libGL, *context->result, PX_FAILED_DLOPEN);
+    void (*tmp)(void);
+    tmp = (void(*)(void))GetProcAddress(libGL, "wglGetProcAddress");
+    GetProcAddressPtr = (PFNWGLGETPROCADDRESSPROC_PRIVATE)tmp;
+
     int contextAttribs[] = {
         WGL_CONTEXT_MAJOR_VERSION_ARB, version_major,
         WGL_CONTEXT_MINOR_VERSION_ARB, version_minor,
@@ -232,6 +251,7 @@ void PxLoadOpenGL(PxContext *context, PxWindow *window, unsigned short version_m
     ERRCHECK_V(((window_t*)window->inner)->gl_ctx, *context->result, PX_FAILED_OSCALL)
 
     wglMakeCurrent(((window_t*)window->inner)->device_context, ((window_t*)window->inner)->gl_ctx);
+    gladLoadGLLoader(PxiGLLoadproc);
 }
 
 void PxDestroyWindow(PxWindow *window) {
