@@ -1,10 +1,10 @@
-CFLAGS=-Wall -Wextra -I../pine/include -Iglad/include
+CFLAGS=-Wall -Wextra -I../pine/include -Iglad/include -ggdb
 LDFLAGS=-L../pine/lib -lpine
 
 ifneq ($(OS),Windows_NT)
 	LDFLAGS+=-lX11 -lGL -lGLU -lXrender
 else
-	LDFLAGS+=-lopengl32 -lole32 -lcomctl32 -lgdi32 -lcomdlg32 -luuid
+	LDFLAGS+=-lopengl32 -lWs2_32 -lole32 -lcomctl32 -lgdi32 -lcomdlg32 -luuid
 endif
 
 SOURCES=$(wildcard *.c)
@@ -19,7 +19,7 @@ $(GLAD_OBJ): $(GLAD)
 
 $(TESTS):bin/%: ./%.c $(GLAD_OBJ) bin 
 	@echo "  CC	$@"
-	@$(CC) $< $(GLAD_OBJ) $(CFLAGS) $(LDFLAGS) -o $@
+	@$(CC) $< $(LDFLAGS) $(GLAD_OBJ) $(CFLAGS) -o $@
 
 bin:
-	@mkdir $@
+	@mkdir -p $@

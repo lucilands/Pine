@@ -48,7 +48,8 @@ int main() {
     }
     
     PxLoadOpenGL(context, window, 4, 3);
-    
+    gladLoadGL();
+
     glEnable(GL_DEPTH_TEST);
     
     unsigned int VBO, VAO;
