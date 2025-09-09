@@ -1,4 +1,4 @@
-CFLAGS=-Wall -Wextra -I../pine/include
+CFLAGS=-Wall -Wextra -I../pine/include -Iglad/include
 LDFLAGS=-L../pine/lib -lpine
 
 ifneq ($(OS),Windows_NT)
@@ -8,12 +8,18 @@ else
 endif
 
 SOURCES=$(wildcard *.c)
+GLAD=glad/src/glad.c
+GLAD_OBJ=glad/src/glad.o
 TESTS=$(addprefix bin/,$(SOURCES:%.c=%))
 
+all: $(TESTS)
 
-$(TESTS):bin/%: ./%.c bin 
+$(GLAD_OBJ): $(GLAD)
+	@$(CC) -c $< $(CFLAGS) -o $@
+
+$(TESTS):bin/%: ./%.c $(GLAD_OBJ) bin 
 	@echo "  CC	$@"
-	@$(CC) $< $(CFLAGS) $(LDFLAGS) -o $@
+	@$(CC) $< $(GLAD_OBJ) $(CFLAGS) $(LDFLAGS) -o $@
 
 bin:
 	@mkdir $@
