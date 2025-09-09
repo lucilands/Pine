@@ -103,6 +103,7 @@ PxWindow *PxCreateWindow(PxContext *context, const PxWindowInfo info, PxWindow *
 
     ret->inner = PxMalloc(sizeof(window_t));
     ERRCHECK_N(ret, *context->result, PX_FAILED_ALLOC);
+    PxMemset(ret->inner, 0, sizeof(window_t));
 
     ret->ctx = context;
 
@@ -253,7 +254,7 @@ void PxDestroyWindow(PxWindow *window) {
     XDestroyWindow(ctx->disp, win->win);
 
     glXDestroyContext(((context_t*)window->ctx->inner)->disp, ((window_t*)window->inner)->gl_loadctx);
-    glXDestroyContext(((context_t*)window->ctx->inner)->disp, ((window_t*)window->inner)->gl_ctx);
+    if (((window_t*)window->inner)->gl_ctx) glXDestroyContext(((context_t*)window->ctx->inner)->disp, ((window_t*)window->inner)->gl_ctx);
 
     PxFree(window->inner);
     PxFree(window->info.title);
