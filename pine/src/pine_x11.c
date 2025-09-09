@@ -1,4 +1,4 @@
-#include <pine.h>
+#include <pine/pine.h>
 #include <X11/X.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
@@ -8,6 +8,7 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/select.h>
+#include <dlfcn.h>
 
 #ifdef PX_INCLUDE_STDLIB
 #include <stdlib.h>
@@ -59,6 +60,10 @@ GLX_RENDER_TYPE, GLX_RGBA_BIT,
     GLX_DEPTH_SIZE, 1,
     None
 };
+static const char *LIBGLNAMES[] = {"libGL.so.1", "libGL.so"};
+static void *libGL;
+typedef void* (APIENTRYP PFNGLXGETPROCADDRESSPROC_PRIVATE)(const char*);
+static PFNGLXGETPROCADDRESSPROC_PRIVATE GetProcAddressPtr;
 
 #define WHY_THE_FUCK_DOES_X11_GIVE_ME_A_ZERO_VALUE_BACK_IF_IT_CANT_TAKE_ONE_ASSERT_MACRO xce.width > 0 ? xce.width : 1, xce.height > 0 ? xce.height : 1
 
@@ -148,7 +153,7 @@ PxWindow *PxCreateWindow(PxContext *context, const PxWindowInfo info, PxWindow *
     ERRCHECK_N(win->gl_loadctx, *context->result, PX_FAILED_OGL_CONTEXT);
     glXMakeCurrent(ctx->disp, win->win, win->gl_loadctx);
 
-    win->gl_loadproc = (glXCreateContextAttribsARBProc)glXGetProcAddressARB("glXCreateContextAttribsARB");
+    win->gl_loadproc = (glXCreateContextAttribsARBProc)glXGetProcAddressARB((const GLubyte *)"glXCreateContextAttribsARB");
     ERRCHECK_N(win->gl_loadproc, *context->result, PX_FAILED_FUNCTION_FETCH);
     
     glXMakeCurrent(NULL, None, 0);
@@ -247,6 +252,19 @@ void PxiUpdateRect(PxContext *context, PxWindow *window, int *new_rect) {
     //XMoveResizeWindow(((context_t*)context->inner)->disp, ((window_t*)window->inner)->win, window->info.x, window->info.y, window->info.width, window->info.height);
 }
 
+void* PxiGLLoadproc(const char *name) {
+    if (!libGL) return NULL;
+    void *res = NULL;
+    if (GetProcAddressPtr) {
+        res = GetProcAddressPtr(name);
+    }
+    if (!res) {
+        res = dlsym(libGL, name);
+    }
+
+    return res;
+}
+
 void PxDestroyWindow(PxWindow *window) {
     window_t *win = (window_t*)window->inner;
     context_t *ctx = (context_t*)window->ctx->inner;
@@ -263,6 +281,12 @@ void PxDestroyWindow(PxWindow *window) {
 }
 
 void PxLoadOpenGL(PxContext *context, PxWindow *window, unsigned short version_major, unsigned short version_minor) {
+    for(unsigned int index = 0; index < (sizeof(LIBGLNAMES) / sizeof(LIBGLNAMES[0])); index++) {
+        libGL = dlopen(LIBGLNAMES[index], RTLD_NOW | RTLD_GLOBAL);
+    }
+    ERRCHECK_V(libGL, *context->result, PX_FAILED_DLOPEN)
+    GetProcAddressPtr = (PFNGLXGETPROCADDRESSPROC_PRIVATE)dlsym(libGL, "glXGetProcAddressARB");
+
     int contextAttribs[] = {
         GLX_CONTEXT_MAJOR_VERSION_ARB, version_major,
         GLX_CONTEXT_MINOR_VERSION_ARB, version_minor,
@@ -276,6 +300,7 @@ void PxLoadOpenGL(PxContext *context, PxWindow *window, unsigned short version_m
     ERRCHECK_V(((window_t*)window->inner)->gl_ctx, *context->result, PX_FAILED_OGL_CONTEXT)
 
     glXMakeCurrent(((context_t*)context->inner)->disp, ((window_t*)window->inner)->win, ((window_t*)window->inner)->gl_ctx);
+    gladLoadGLLoader(PxiGLLoadproc);
 }
 
 void PxDestroyContext(PxContext *context) {

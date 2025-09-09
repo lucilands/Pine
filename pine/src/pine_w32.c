@@ -1,4 +1,4 @@
-#include <pine.h>
+#include <pine/pine.h>
 #include <windows.h>
 #include <GL/gl.h>
 

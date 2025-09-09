@@ -1,9 +1,7 @@
-#include <GL/gl.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <pine.h>
+#include <pine/pine.h>
 
-#include <GL/glu.h>
 
 
 #define ERRCHECK(var_to_check, res) if (!var_to_check) {printf("[ERROR]: %s\n", PxErrorToString(res)); exit(res);}

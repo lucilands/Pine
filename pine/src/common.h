@@ -1,7 +1,7 @@
 #ifndef _COMMON_H
 #define _COMMON_H
 
-#include <pine.h>
+#include <pine/pine.h>
 
 typedef struct {
     PxEvent *data;
@@ -34,6 +34,8 @@ void PxiUpdateTitle(PxContext *context, PxWindow *window, const char *new_title)
 void PxiUpdatePosition(PxContext *context, PxWindow *window, int *new_position);
 void PxiUpdateSize(PxContext *context, PxWindow *window, int *new_size);
 void PxiUpdateRect(PxContext *context, PxWindow *window, int *new_rect);
+
+void *PxiGLLoadproc(const char *name);
 
 int PxiTransmogKeycode(int keycode);
 

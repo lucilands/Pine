@@ -1,4 +1,4 @@
-#include <pine.h>
+#include <pine/pine.h>
 #include "common.h"
 
 #ifdef PX_INCLUDE_STDLIB
@@ -22,6 +22,7 @@ char *PxErrorToString(PxResult res) {
         case PX_INVALID_PARAM: return "Invalid parameter";
         case PX_FAILED_FUNCTION_FETCH: return "Failed to get function from OpenGL";
         case PX_FAILED_OGL_CONTEXT: return "Failed to create OpenGL context";
+        case PX_FAILED_DLOPEN: return "A library could not be found";
     }
 }
 

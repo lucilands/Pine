@@ -1,4 +1,4 @@
-CFLAGS=-Wall -Wextra -std=c99 -pedantic -Iinclude -ggdb
+CFLAGS=-Wall -Wextra -std=c99 -Iinclude -ggdb
 OSPOSTFIXES=_w32 _x11
 ifeq ($(OS),Windows_NT)
 	OSPOSTFIX=_w32

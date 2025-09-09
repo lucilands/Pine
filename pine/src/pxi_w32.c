@@ -1,4 +1,4 @@
-#include <pine.h>
+#include <pine/pine.h>
 
 #include "common.h"
 #include "common_w32.h"

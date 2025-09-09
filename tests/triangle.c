@@ -1,7 +1,5 @@
-#include <pine.h>
+#include <pine/pine.h>
 #include <stdio.h>
-
-#include <glad/glad.h>
 
 
 

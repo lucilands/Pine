@@ -4,6 +4,7 @@
 
 #include "pxutils.h"
 #include "pxkeycodes.h"
+#include "pxglad.h"
 
 typedef struct PxContext_internal PxContext;
 typedef struct PxWindow_internal PxWindow;
