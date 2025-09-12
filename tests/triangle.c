@@ -46,7 +46,7 @@ int main() {
     }
     
     PxLoadOpenGL(context, window, 4, 3);
-    if (res) {
+    if (result) {
         printf("ERROR: Failed to initialize OpenGL: %s\n", PxErrorToString(res));
     }
 

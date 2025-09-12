@@ -11,12 +11,17 @@ endif
 
 SOURCES=$(wildcard src/*.c)
 OBJECTS=$(addprefix build/,$(notdir $(SOURCES:%.c=%.o)))
+BUILD_TESTS=Yes
 
 TARGET=bin/demo
 
-.PHONY: all pine tests
+.PHONY: all pine tests clean
 
+ifeq ($(BUILD_TESTS),Yes)
+all: $(TARGET) tests
+else
 all: $(TARGET)
+endif
 
 $(TARGET): $(OBJECTS) pine bin
 	@echo "  LD	$@"
@@ -34,3 +39,5 @@ build bin:
 
 tests: pine
 	@cd ./tests && make
+
+clean:
