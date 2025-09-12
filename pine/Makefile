@@ -28,3 +28,6 @@ $(OBJECTS):build/%.o: src/%.c build
 
 build lib:
 	@mkdir -p $@
+
+clean:
+	rm -r build lib

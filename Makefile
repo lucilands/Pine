@@ -41,3 +41,5 @@ tests: pine
 	@cd ./tests && make
 
 clean:
+	rm -r build bin
+	cd pine && make clean
