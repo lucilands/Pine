@@ -22,6 +22,10 @@ int main() {
     ERRCHECK(win, res)
 
     PxLoadOpenGL(context, win, 4, 3);
+    if (res) {
+        fprintf(stderr, "[ERROR]: Failed to load OpenGL: %s\n", PxErrorToString(res));
+        return res;
+    }
 
     PxEvent event = {0};
     int running = 1;
