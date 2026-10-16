@@ -168,54 +168,45 @@ int PxPollEvents(PxWindow *window, PxEvent *ev) {
     context_t *ctx = (context_t*)window->ctx->inner;
     ev->type = __PX_EVENT_NONE__;
 
-    FD_ZERO(&win->in_fds);
-    FD_SET(ctx->x11_fd, &win->in_fds);
+    if (!XPending(ctx->disp)) return 0;
 
-    win->tv.tv_usec = 10;
-    win->tv.tv_sec = 0;
-
-    int event_recv = select(ctx->x11_fd + 1, &win->in_fds, NULL, NULL, &win->tv);
-
+    XNextEvent(ctx->disp, &win->ev);
     XConfigureEvent xce = win->ev.xconfigure;
 
-    int pending = XPending(ctx->disp);
-    if (pending && event_recv) {
-        XNextEvent(ctx->disp, &win->ev);
+    switch (win->ev.type) {
+        case KeyPress:
+            (*ev).type = PX_EVENT_KEYDOWN;
+            (*ev).keycode = PxiTransmogKeycode(XLookupKeysym(&win->ev.xkey, 0));
+            break;
+
+        case KeyRelease:
+            (*ev).type = PX_EVENT_KEYUP;
+            (*ev).keycode = PxiTransmogKeycode(XLookupKeysym(&win->ev.xkey, 0));
+            break;
+
+        case ConfigureNotify:
+            if (xce.width != window->info.width || xce.height != window->info.height) {
+                (*ev).type = PX_EVENT_RESIZE;
+                PxiUpdateSize(window->ctx, window, (int[2]){WHY_THE_FUCK_DOES_X11_GIVE_ME_A_ZERO_VALUE_BACK_IF_IT_CANT_TAKE_ONE_ASSERT_MACRO});
+                break;
+            }
+            else if (xce.x != window->info.x || xce.y != window->info.y) {
+                (*ev).type = PX_EVENT_WINDOW_MOVE;
+                PxiUpdatePosition(window->ctx, window, (int[2]){xce.x, xce.y});
+                break;
+            }
+            break;
         
-        switch (win->ev.type) {            
-            case KeyPress:
-                (*ev).type = PX_EVENT_KEYDOWN;
-                (*ev).keycode = PxiTransmogKeycode(XLookupKeysym(&win->ev.xkey, 0));
-                break;
+        case ClientMessage:
+            if ((Atom)win->ev.xclient.data.l[0] == win->close_event) {
+                (*ev).type = PX_EVENT_CLOSE;
+            }
+            break;
 
-            case KeyRelease:
-                (*ev).type = PX_EVENT_KEYUP;
-                (*ev).keycode = PxiTransmogKeycode(XLookupKeysym(&win->ev.xkey, 0));
-                break;
-
-            case ConfigureNotify:
-                if (xce.width != window->info.width || xce.height != window->info.height) {
-                    (*ev).type = PX_EVENT_RESIZE;
-                    PxiUpdateSize(window->ctx, window, (int[2]){WHY_THE_FUCK_DOES_X11_GIVE_ME_A_ZERO_VALUE_BACK_IF_IT_CANT_TAKE_ONE_ASSERT_MACRO});
-                    break;
-                }
-                else if (xce.x != window->info.x || xce.y != window->info.y) {
-                    (*ev).type = PX_EVENT_WINDOW_MOVE;
-                    PxiUpdatePosition(window->ctx, window, (int[2]){xce.x, xce.y});
-                    break;
-                }
-                break;
-            
-            case ClientMessage:
-                if ((Atom)win->ev.xclient.data.l[0] == win->close_event) {
-                    (*ev).type = PX_EVENT_CLOSE;
-                }
-                break;
-
-            default: break; 
-        }
+        default: break; 
     }
-    return pending;
+
+    return 1;
 }
 
 void PxiUpdateTitle(PxContext *context, PxWindow *window, const char *new_title) {
