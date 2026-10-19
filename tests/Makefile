@@ -1,10 +1,13 @@
 CFLAGS=-Wall -Wextra -I../pine/include -ggdb
 LDFLAGS=-L../pine/lib -lpine
 
-ifneq ($(OS),Windows_NT)
-	LDFLAGS+=-lX11 -lGL -lGLU -lXrender
-else
+include ../pine/backend.mk
+ifeq ($(BACKEND),w32)
 	LDFLAGS+=-lopengl32 -lWs2_32 -lole32 -lcomctl32 -lgdi32 -lcomdlg32 -luuid
+else ifeq ($(BACKEND),wl)
+	LDFLAGS+=-lwayland-client -lwayland-egl -lEGL -lxkbcommon -lGL -lGLU
+else
+	LDFLAGS+=-lX11 -lGL -lGLU -lXrender
 endif
 
 SOURCES=$(wildcard *.c)

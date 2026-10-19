@@ -27,6 +27,7 @@
 // Warnings
 #define PX_INVALID_PARAM 4000
 #define PX_UNKNOWN_EVENT 4001
+#define PX_UNSUPPORTED 4002
 
 #define PX_TRUE 1
 #define PX_FALSE 0

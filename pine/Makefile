@@ -1,32 +1,53 @@
 CFLAGS=-Wall -Wextra -std=c99 -Iinclude -ggdb
-OSPOSTFIXES=_w32 _x11
-ifeq ($(OS),Windows_NT)
-	OSPOSTFIX=_w32
-	OSNONPOSTFIX=_x11
-else
-	UNAME := $(shell uname -s)
-	ifeq ($(UNAME),Linux)
-		OSPOSTFIX=_x11
-		OSNONPOSTFIX=_w32
-	endif
-endif
+include backend.mk
 
-SOURCES=$(filter-out %$(OSNONPOSTFIX).c, $(wildcard src/*.c))
+EXCLUDED_SOURCES=$(foreach b,$(filter-out $(BACKEND),$(BACKENDS)),%_$(b).c)
+SOURCES=$(filter-out $(EXCLUDED_SOURCES),$(wildcard src/*.c))
 OBJECTS=$(addprefix build/,$(notdir $(SOURCES:%.c=%.o)))
+
+ifeq ($(BACKEND),wl)
+	WAYLAND_SCANNER=$(shell pkg-config --variable=wayland_scanner wayland-scanner)
+	WAYLAND_PROTOCOLS=$(shell pkg-config --variable=pkgdatadir wayland-protocols)
+	PROTOCOLS=$(WAYLAND_PROTOCOLS)/stable/xdg-shell/xdg-shell.xml
+	PROTOCOL_DIR=build/protocols
+	PROTOCOL_SOURCES=$(addprefix $(PROTOCOL_DIR)/,$(notdir $(PROTOCOLS:%.xml=%-client-protocol.c)))
+	PROTOCOL_HEADERS=$(PROTOCOL_SOURCES:%.c=%.h)
+	PROTOCOL_OBJECTS=$(PROTOCOL_SOURCES:%.c=%.o)
+	CFLAGS+=-I$(PROTOCOL_DIR)
+endif
 
 TARGET=lib/libpine.a
 
 all: $(TARGET)
 
-$(TARGET): $(OBJECTS) lib
+$(TARGET): $(OBJECTS) $(PROTOCOL_OBJECTS) | lib
 	@echo "  LD	$@"
-	@$(AR) rcs $@ $(OBJECTS)
+	@$(AR) rcs $@ $(OBJECTS) $(PROTOCOL_OBJECTS)
 
-$(OBJECTS):build/%.o: src/%.c build
+$(OBJECTS):build/%.o: src/%.c | build
 	@echo "  CC	$@"
 	@$(CC) -c $< $(CFLAGS) -o $@
 
-build lib:
+# Backend sources may include the generated protocol headers.
+$(OBJECTS): $(PROTOCOL_HEADERS)
+
+vpath %.xml $(dir $(PROTOCOLS))
+# Keep the generated sources around instead of treating them as intermediates.
+.SECONDARY: $(PROTOCOL_SOURCES)
+
+$(PROTOCOL_DIR)/%-client-protocol.h: %.xml | $(PROTOCOL_DIR)
+	@echo "  GEN	$@"
+	@$(WAYLAND_SCANNER) client-header $< $@
+
+$(PROTOCOL_DIR)/%-client-protocol.c: %.xml | $(PROTOCOL_DIR)
+	@echo "  GEN	$@"
+	@$(WAYLAND_SCANNER) private-code $< $@
+
+$(PROTOCOL_DIR)/%.o: $(PROTOCOL_DIR)/%.c
+	@echo "  CC	$@"
+	@$(CC) -c $< $(CFLAGS) -o $@
+
+build lib $(PROTOCOL_DIR):
 	@mkdir -p $@
 
 clean:
