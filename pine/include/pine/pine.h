@@ -29,6 +29,9 @@ enum PxWindowParam {
     PX_PARAM_SHOULD_CLOSE = 0,
 
     PX_PARAM_SIZE,
+    // Wayland: compositors hide window positions from clients. Reads return
+    // 0,0 and writes fail with PX_UNSUPPORTED (PX_PARAM_RECT still applies
+    // the size part).
     PX_PARAM_POSITION,
     PX_PARAM_RECT,
 
@@ -41,6 +44,7 @@ enum PxEventType {
     __PX_EVENT_NONE__ = 0,
     PX_EVENT_CLOSE,
     PX_EVENT_RESIZE,
+    // Never emitted on Wayland, see PX_PARAM_POSITION.
     PX_EVENT_WINDOW_MOVE,
 
     PX_EVENT_KEYDOWN,
