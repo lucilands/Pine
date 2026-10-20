@@ -11,11 +11,13 @@
 #include <dlfcn.h>
 #include <xdg-shell-client-protocol.h>
 #include <xkbcommon/xkbcommon.h>
+#include <linux/input-event-codes.h>
 
 #include <errno.h>
 #include <poll.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <time.h>
 #include <unistd.h>
 
 #ifdef PX_INCLUDE_STDLIB
@@ -35,11 +37,21 @@ typedef struct {
 
     struct wl_seat *seat;
     struct wl_keyboard *keyboard;
+    struct wl_pointer *pointer;
+    PxWindow *ptr_focus;
+    PxInt32 ptr_x, ptr_y;
     struct xkb_context *xkb_context;
     struct xkb_keymap *xkb_keymap;
     struct xkb_state *xkb_state;
     PxWindow *kb_focus;
+
+    int32_t repeat_rate, repeat_delay;
+    PxUint8 repeat_active;
+    uint32_t repeat_key;
+    int repeat_keycode;
+    int64_t repeat_next_ms;
 } context_t;
+
 
 typedef struct {
     struct wl_surface *surf;
@@ -54,6 +66,16 @@ typedef struct {
 
 static const char *LIBGLNAMES[] = {"libGL.so.1", "libGL.so"};
 static void *libGL;
+
+static int64_t monotonic_ms(void) {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (int64_t)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+}
+
+static void stop_key_repeat(context_t *ctx) {
+    ctx->repeat_active = PX_FALSE;
+}
 
 static void xdg_wm_base_ping(void *data, struct xdg_wm_base *xdg_wm_base, uint32_t serial) {
     (void)data;
@@ -137,7 +159,9 @@ static void keyboard_enter(void *data, struct wl_keyboard *keyboard, uint32_t se
 
 static void keyboard_leave(void *data, struct wl_keyboard *keyboard, uint32_t serial, struct wl_surface *surface) {
     (void)keyboard; (void)serial; (void)surface;
-    ((context_t*)((PxContext*)data)->inner)->kb_focus = NULL;
+    context_t *ctx = (context_t*)((PxContext*)data)->inner;
+    ctx->kb_focus = NULL;
+    stop_key_repeat(ctx);
 }
 
 static void keyboard_key(void *data, struct wl_keyboard *keyboard, uint32_t serial, uint32_t time, uint32_t key, uint32_t state) {
@@ -152,7 +176,31 @@ static void keyboard_key(void *data, struct wl_keyboard *keyboard, uint32_t seri
     xkb_keysym_t sym = nsyms > 0 ? syms[0] : xkb_state_key_get_one_sym(ctx->xkb_state, keycode);
 
     int type = state == WL_KEYBOARD_KEY_STATE_PRESSED ? PX_EVENT_KEYDOWN : PX_EVENT_KEYUP;
-    push_event(ctx->kb_focus, type, PxiTransmogKeycode((int)sym));
+    int pine_keycode = PxiTransmogKeycode((int)sym);
+    push_event(ctx->kb_focus, type, pine_keycode);
+
+    if (state == WL_KEYBOARD_KEY_STATE_PRESSED) {
+        if (ctx->repeat_rate > 0 && xkb_keymap_key_repeats(ctx->xkb_keymap, keycode)) {
+            ctx->repeat_active = PX_TRUE;
+            ctx->repeat_key = key;
+            ctx->repeat_keycode = pine_keycode;
+            ctx->repeat_next_ms = monotonic_ms() + ctx->repeat_delay;
+        } else {
+            stop_key_repeat(ctx);
+        }
+    } else if (ctx->repeat_active && ctx->repeat_key == key) {
+        stop_key_repeat(ctx);
+    }
+}
+
+static void dispatch_key_repeat(context_t *ctx) {
+    if (!ctx->repeat_active || !ctx->kb_focus || ctx->repeat_rate <= 0) return;
+
+    int64_t now = monotonic_ms();
+    if (now < ctx->repeat_next_ms) return;
+
+    push_event(ctx->kb_focus, PX_EVENT_KEYDOWN, ctx->repeat_keycode);
+    ctx->repeat_next_ms = now + 1000 / ctx->repeat_rate;
 }
 
 static void keyboard_modifiers(void *data, struct wl_keyboard *keyboard, uint32_t serial, uint32_t depressed, uint32_t latched, uint32_t locked, uint32_t group) {
@@ -163,7 +211,11 @@ static void keyboard_modifiers(void *data, struct wl_keyboard *keyboard, uint32_
 }
 
 static void keyboard_repeat_info(void *data, struct wl_keyboard *keyboard, int32_t rate, int32_t delay) {
-    (void)data; (void)keyboard; (void)rate; (void)delay;
+    (void)keyboard;
+    context_t *ctx = (context_t*)((PxContext*)data)->inner;
+    ctx->repeat_rate = rate;
+    ctx->repeat_delay = delay;
+    if (rate <= 0) stop_key_repeat(ctx);
 }
 
 static const struct wl_keyboard_listener keyboard_listener = {
@@ -175,9 +227,77 @@ static const struct wl_keyboard_listener keyboard_listener = {
     .repeat_info = keyboard_repeat_info
 };
 
+static void pointer_enter(void *data, struct wl_pointer *pointer, uint32_t serial, struct wl_surface *surface, wl_fixed_t sx, wl_fixed_t sy) {
+    (void)pointer; (void)serial;
+    context_t *ctx = (context_t*)((PxContext*)data)->inner;
+    ctx->ptr_focus = surface ? (PxWindow*)wl_surface_get_user_data(surface) : NULL;
+    ctx->ptr_x = wl_fixed_to_int(sx);
+    ctx->ptr_y = wl_fixed_to_int(sy);
+}
+
+static void push_mouse_event(context_t *ctx, int type, int button) {
+    PxEvent ev = { .type = type, .keycode = button, .mouse_x = ctx->ptr_x, .mouse_y = ctx->ptr_y };
+    PxiPushEventStack(ctx->ptr_focus->ctx, &ctx->ptr_focus->ecache, ev);
+}
+
+static void pointer_leave(void *data, struct wl_pointer *pointer, uint32_t serial, struct wl_surface *surface) {
+    (void)pointer; (void)serial; (void)surface;
+    ((context_t*)((PxContext*)data)->inner)->ptr_focus = NULL;
+}
+
+static void pointer_motion(void *data, struct wl_pointer *pointer, uint32_t time, wl_fixed_t sx, wl_fixed_t sy) {
+    (void)pointer; (void)time;
+    context_t *ctx = (context_t*)((PxContext*)data)->inner;
+    ctx->ptr_x = wl_fixed_to_int(sx);
+    ctx->ptr_y = wl_fixed_to_int(sy);
+    if (!ctx->ptr_focus) return;
+    push_mouse_event(ctx, PX_EVENT_MOUSE_MOVE, 0);
+}
+
+static int wl_button_to_pine(uint32_t button) {
+    switch (button) {
+        case BTN_LEFT: return PX_MOUSE_LEFT;
+        case BTN_RIGHT: return PX_MOUSE_RIGHT;
+        case BTN_MIDDLE: return PX_MOUSE_MIDDLE;
+        default: return 0;
+    }
+}
+
+static void pointer_button(void *data, struct wl_pointer *pointer, uint32_t serial, uint32_t time, uint32_t button, uint32_t state) {
+    (void)pointer; (void)serial; (void)time;
+    context_t *ctx = (context_t*)((PxContext*)data)->inner;
+    int pine_button = wl_button_to_pine(button);
+    if (!ctx->ptr_focus || !pine_button) return;
+
+    int type = state == WL_POINTER_BUTTON_STATE_PRESSED ? PX_EVENT_MOUSE_DOWN : PX_EVENT_MOUSE_UP;
+    push_mouse_event(ctx, type, pine_button);
+}
+
+static void pointer_axis(void *data, struct wl_pointer *pointer, uint32_t time, uint32_t axis, wl_fixed_t value) {
+    (void)data; (void)pointer; (void)time; (void)axis; (void)value;
+}
+
+static const struct wl_pointer_listener pointer_listener = {
+    .enter = pointer_enter,
+    .leave = pointer_leave,
+    .motion = pointer_motion,
+    .button = pointer_button,
+    .axis = pointer_axis
+};
+
 static void seat_capabilities(void *data, struct wl_seat *seat, uint32_t capabilities) {
     context_t *ctx = (context_t*)((PxContext*)data)->inner;
     int has_keyboard = capabilities & WL_SEAT_CAPABILITY_KEYBOARD;
+    int has_pointer = capabilities & WL_SEAT_CAPABILITY_POINTER;
+
+    if (has_pointer && !ctx->pointer) {
+        ctx->pointer = wl_seat_get_pointer(seat);
+        wl_pointer_add_listener(ctx->pointer, &pointer_listener, data);
+    } else if (!has_pointer && ctx->pointer) {
+        wl_pointer_release(ctx->pointer);
+        ctx->pointer = NULL;
+        ctx->ptr_focus = NULL;
+    }
 
     if (has_keyboard && !ctx->keyboard) {
         ctx->keyboard = wl_seat_get_keyboard(seat);
@@ -186,6 +306,7 @@ static void seat_capabilities(void *data, struct wl_seat *seat, uint32_t capabil
         wl_keyboard_release(ctx->keyboard);
         ctx->keyboard = NULL;
         ctx->kb_focus = NULL;
+        stop_key_repeat(ctx);
     }
 }
 
@@ -230,6 +351,8 @@ PxContext *PxCreateContext(PxResult *res) {
 
     context_t *ctx = (context_t*)ret->inner;
     ctx->egl_display = EGL_NO_DISPLAY;
+    ctx->repeat_rate = 25;
+    ctx->repeat_delay = 600;
     ctx->xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
     ERRCHECK_N(ctx->xkb_context, *res, PX_FAILED_ALLOC);
 
@@ -335,6 +458,7 @@ int PxPollEvents(PxWindow *window, PxEvent *ev) {
         return 1;
     }
 
+    if (!window->ecache.len) dispatch_key_repeat(ctx);
     if (!window->ecache.len) return 0;
     *ev = pop_front_event(&window->ecache);
     return 1;
@@ -442,7 +566,10 @@ void PxDestroyWindow(PxWindow *window) {
     if (win->xdg_toplevel) xdg_toplevel_destroy(win->xdg_toplevel);
     if (win->xdg_surf) xdg_surface_destroy(win->xdg_surf);
     if (win->surf) wl_surface_destroy(win->surf);
-    if (ctx->kb_focus == window) ctx->kb_focus = NULL;
+    if (ctx->kb_focus == window) {
+        ctx->kb_focus = NULL;
+        stop_key_repeat(ctx);
+    }
     wl_display_flush(ctx->display);
 
     if (window->ecache.data) PxFree(window->ecache.data);
@@ -455,6 +582,7 @@ void PxDestroyContext(PxContext *context) {
     context_t *ctx = (context_t*)context->inner;
     if (ctx->egl_display != EGL_NO_DISPLAY) eglTerminate(ctx->egl_display);
     if (ctx->keyboard) wl_keyboard_release(ctx->keyboard);
+    if (ctx->pointer) wl_pointer_release(ctx->pointer);
     if (ctx->seat) wl_seat_destroy(ctx->seat);
     if (ctx->xkb_state) xkb_state_unref(ctx->xkb_state);
     if (ctx->xkb_keymap) xkb_keymap_unref(ctx->xkb_keymap);

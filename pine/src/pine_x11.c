@@ -119,7 +119,7 @@ PxWindow *PxCreateWindow(PxContext *context, const PxWindowInfo info, PxWindow *
     
     win->swa = (XSetWindowAttributes) {0};
     win->swa.colormap = win->cmap;
-    win->swa.event_mask = ExposureMask | KeyPressMask | KeyReleaseMask | StructureNotifyMask;
+    win->swa.event_mask = ExposureMask | KeyPressMask | KeyReleaseMask | ButtonPressMask | ButtonReleaseMask | PointerMotionMask | StructureNotifyMask;
 
     
     win->win = XCreateWindow(
@@ -147,7 +147,7 @@ PxWindow *PxCreateWindow(PxContext *context, const PxWindowInfo info, PxWindow *
     win->close_event = XInternAtom(ctx->disp, "WM_DELETE_WINDOW", PX_FALSE);
     XSetWMProtocols(ctx->disp, win->win, &win->close_event, 1);
 
-    XSelectInput(ctx->disp, win->win, ExposureMask | KeyPressMask | KeyReleaseMask | StructureNotifyMask);
+    XSelectInput(ctx->disp, win->win, ExposureMask | KeyPressMask | KeyReleaseMask | ButtonPressMask | ButtonReleaseMask | PointerMotionMask | StructureNotifyMask);
     
     win->gl_loadctx = glXCreateContext(ctx->disp, ctx->vi, NULL, PX_TRUE);
     ERRCHECK_N(win->gl_loadctx, *context->result, PX_FAILED_OGL_CONTEXT);
@@ -162,6 +162,16 @@ PxWindow *PxCreateWindow(PxContext *context, const PxWindowInfo info, PxWindow *
     return ret;
 }
 
+
+// X11 numbers the buttons left, middle, right; Pine uses left, right, middle.
+static int x11_button_to_pine(unsigned int button) {
+    switch (button) {
+        case Button1: return PX_MOUSE_LEFT;
+        case Button2: return PX_MOUSE_MIDDLE;
+        case Button3: return PX_MOUSE_RIGHT;
+        default: return 0;
+    }
+}
 
 int PxPollEvents(PxWindow *window, PxEvent *ev) {
     window_t *win = (window_t*)window->inner;
@@ -182,6 +192,23 @@ int PxPollEvents(PxWindow *window, PxEvent *ev) {
         case KeyRelease:
             (*ev).type = PX_EVENT_KEYUP;
             (*ev).keycode = PxiTransmogKeycode(XLookupKeysym(&win->ev.xkey, 0));
+            break;
+
+        case ButtonPress:
+        case ButtonRelease: {
+            int button = x11_button_to_pine(win->ev.xbutton.button);
+            if (!button) break; // scroll wheel and extra buttons are not reported
+            (*ev).type = win->ev.type == ButtonPress ? PX_EVENT_MOUSE_DOWN : PX_EVENT_MOUSE_UP;
+            (*ev).keycode = button;
+            (*ev).mouse_x = win->ev.xbutton.x;
+            (*ev).mouse_y = win->ev.xbutton.y;
+            break;
+        }
+
+        case MotionNotify:
+            (*ev).type = PX_EVENT_MOUSE_MOVE;
+            (*ev).mouse_x = win->ev.xmotion.x;
+            (*ev).mouse_y = win->ev.xmotion.y;
             break;
 
         case ConfigureNotify:

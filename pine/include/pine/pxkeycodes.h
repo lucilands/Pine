@@ -71,4 +71,11 @@ enum {
     PX_KEY_UNKNOWN
 };
 
+// Mouse buttons, delivered in PxEvent.keycode for PX_EVENT_MOUSE_DOWN/UP.
+enum {
+    PX_MOUSE_LEFT = 1,
+    PX_MOUSE_RIGHT = 2,
+    PX_MOUSE_MIDDLE = 3,
+};
+
 #endif //_PX_KEYCODES_H

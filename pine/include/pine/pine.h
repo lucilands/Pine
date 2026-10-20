@@ -23,6 +23,7 @@ typedef struct {
 typedef struct {
     int type;
     int keycode;
+    PxInt32 mouse_x, mouse_y;
 } PxEvent;
 
 enum PxWindowParam {
@@ -48,7 +49,11 @@ enum PxEventType {
     PX_EVENT_WINDOW_MOVE,
 
     PX_EVENT_KEYDOWN,
-    PX_EVENT_KEYUP
+    PX_EVENT_KEYUP,
+
+    PX_EVENT_MOUSE_DOWN,
+    PX_EVENT_MOUSE_UP,
+    PX_EVENT_MOUSE_MOVE,
 };
 
 PxDisplayInfo PxGetDisplay(PxContext *context);
