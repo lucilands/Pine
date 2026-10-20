@@ -11,6 +11,7 @@
 #include <dlfcn.h>
 #include <xdg-shell-client-protocol.h>
 #include <xkbcommon/xkbcommon.h>
+#include <linux/input-event-codes.h>
 
 #include <errno.h>
 #include <poll.h>
@@ -35,6 +36,9 @@ typedef struct {
 
     struct wl_seat *seat;
     struct wl_keyboard *keyboard;
+    struct wl_pointer *pointer;
+    PxWindow *ptr_focus;
+    PxInt32 ptr_x, ptr_y;
     struct xkb_context *xkb_context;
     struct xkb_keymap *xkb_keymap;
     struct xkb_state *xkb_state;
@@ -175,9 +179,78 @@ static const struct wl_keyboard_listener keyboard_listener = {
     .repeat_info = keyboard_repeat_info
 };
 
+static void pointer_enter(void *data, struct wl_pointer *pointer, uint32_t serial, struct wl_surface *surface, wl_fixed_t sx, wl_fixed_t sy) {
+    (void)pointer; (void)serial;
+    context_t *ctx = (context_t*)((PxContext*)data)->inner;
+    ctx->ptr_focus = surface ? (PxWindow*)wl_surface_get_user_data(surface) : NULL;
+    ctx->ptr_x = wl_fixed_to_int(sx);
+    ctx->ptr_y = wl_fixed_to_int(sy);
+}
+
+static void push_mouse_event(context_t *ctx, int type, int button) {
+    PxEvent ev = { .type = type, .keycode = button, .mouse_x = ctx->ptr_x, .mouse_y = ctx->ptr_y };
+    PxiPushEventStack(ctx->ptr_focus->ctx, &ctx->ptr_focus->ecache, ev);
+}
+
+static void pointer_leave(void *data, struct wl_pointer *pointer, uint32_t serial, struct wl_surface *surface) {
+    (void)pointer; (void)serial; (void)surface;
+    ((context_t*)((PxContext*)data)->inner)->ptr_focus = NULL;
+}
+
+static void pointer_motion(void *data, struct wl_pointer *pointer, uint32_t time, wl_fixed_t sx, wl_fixed_t sy) {
+    (void)pointer; (void)time;
+    context_t *ctx = (context_t*)((PxContext*)data)->inner;
+    ctx->ptr_x = wl_fixed_to_int(sx);
+    ctx->ptr_y = wl_fixed_to_int(sy);
+    if (!ctx->ptr_focus) return;
+    push_mouse_event(ctx, PX_EVENT_MOUSE_MOVE, 0);
+}
+
+// Linux evdev button codes map onto Pine's left, right, middle numbering.
+static int wl_button_to_pine(uint32_t button) {
+    switch (button) {
+        case BTN_LEFT: return PX_MOUSE_LEFT;
+        case BTN_RIGHT: return PX_MOUSE_RIGHT;
+        case BTN_MIDDLE: return PX_MOUSE_MIDDLE;
+        default: return 0;
+    }
+}
+
+static void pointer_button(void *data, struct wl_pointer *pointer, uint32_t serial, uint32_t time, uint32_t button, uint32_t state) {
+    (void)pointer; (void)serial; (void)time;
+    context_t *ctx = (context_t*)((PxContext*)data)->inner;
+    int pine_button = wl_button_to_pine(button);
+    if (!ctx->ptr_focus || !pine_button) return;
+
+    int type = state == WL_POINTER_BUTTON_STATE_PRESSED ? PX_EVENT_MOUSE_DOWN : PX_EVENT_MOUSE_UP;
+    push_mouse_event(ctx, type, pine_button);
+}
+
+static void pointer_axis(void *data, struct wl_pointer *pointer, uint32_t time, uint32_t axis, wl_fixed_t value) {
+    (void)data; (void)pointer; (void)time; (void)axis; (void)value;
+}
+
+static const struct wl_pointer_listener pointer_listener = {
+    .enter = pointer_enter,
+    .leave = pointer_leave,
+    .motion = pointer_motion,
+    .button = pointer_button,
+    .axis = pointer_axis
+};
+
 static void seat_capabilities(void *data, struct wl_seat *seat, uint32_t capabilities) {
     context_t *ctx = (context_t*)((PxContext*)data)->inner;
     int has_keyboard = capabilities & WL_SEAT_CAPABILITY_KEYBOARD;
+    int has_pointer = capabilities & WL_SEAT_CAPABILITY_POINTER;
+
+    if (has_pointer && !ctx->pointer) {
+        ctx->pointer = wl_seat_get_pointer(seat);
+        wl_pointer_add_listener(ctx->pointer, &pointer_listener, data);
+    } else if (!has_pointer && ctx->pointer) {
+        wl_pointer_release(ctx->pointer);
+        ctx->pointer = NULL;
+        ctx->ptr_focus = NULL;
+    }
 
     if (has_keyboard && !ctx->keyboard) {
         ctx->keyboard = wl_seat_get_keyboard(seat);
@@ -455,6 +528,7 @@ void PxDestroyContext(PxContext *context) {
     context_t *ctx = (context_t*)context->inner;
     if (ctx->egl_display != EGL_NO_DISPLAY) eglTerminate(ctx->egl_display);
     if (ctx->keyboard) wl_keyboard_release(ctx->keyboard);
+    if (ctx->pointer) wl_pointer_release(ctx->pointer);
     if (ctx->seat) wl_seat_destroy(ctx->seat);
     if (ctx->xkb_state) xkb_state_unref(ctx->xkb_state);
     if (ctx->xkb_keymap) xkb_keymap_unref(ctx->xkb_keymap);

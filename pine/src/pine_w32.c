@@ -64,6 +64,37 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
             PxiPushEventStack(self->ctx, &self->ecache, event);
             break;
 
+        case WM_LBUTTONDOWN:
+        case WM_RBUTTONDOWN:
+        case WM_MBUTTONDOWN:
+            event.type = PX_EVENT_MOUSE_DOWN;
+            event.keycode = uMsg == WM_LBUTTONDOWN ? PX_MOUSE_LEFT
+                          : uMsg == WM_RBUTTONDOWN ? PX_MOUSE_RIGHT
+                          : PX_MOUSE_MIDDLE;
+            event.mouse_x = (short)LOWORD(lParam);
+            event.mouse_y = (short)HIWORD(lParam);
+            PxiPushEventStack(self->ctx, &self->ecache, event);
+            break;
+
+        case WM_LBUTTONUP:
+        case WM_RBUTTONUP:
+        case WM_MBUTTONUP:
+            event.type = PX_EVENT_MOUSE_UP;
+            event.keycode = uMsg == WM_LBUTTONUP ? PX_MOUSE_LEFT
+                          : uMsg == WM_RBUTTONUP ? PX_MOUSE_RIGHT
+                          : PX_MOUSE_MIDDLE;
+            event.mouse_x = (short)LOWORD(lParam);
+            event.mouse_y = (short)HIWORD(lParam);
+            PxiPushEventStack(self->ctx, &self->ecache, event);
+            break;
+
+        case WM_MOUSEMOVE:
+            event.type = PX_EVENT_MOUSE_MOVE;
+            event.mouse_x = (short)LOWORD(lParam);
+            event.mouse_y = (short)HIWORD(lParam);
+            PxiPushEventStack(self->ctx, &self->ecache, event);
+            break;
+
         case WM_DESTROY:
             PostQuitMessage(0);
             return PX_FALSE;
