@@ -43,7 +43,7 @@
 #endif // PxUint16
 
 #ifndef PxUint32
-#define PxUint32 unsigned long int
+#define PxUint32 unsigned int
 #endif // PxUint32
 
 #ifndef PxUint64
@@ -59,7 +59,7 @@
 #endif // PxInt16
 
 #ifndef PxInt32
-#define PxInt32 signed long int
+#define PxInt32 signed int
 #endif // PxInt32
 
 #ifndef PxInt64
