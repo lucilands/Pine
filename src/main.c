@@ -48,6 +48,18 @@ int main() {
                     printf("keyup: %i: %c\n", event.keycode, (char)event.keycode);
                     break;
 
+                case PX_EVENT_MOUSE_DOWN:
+                    printf("mouse down: button %i at %i, %i\n", event.keycode, (int)event.mouse_x, (int)event.mouse_y);
+                    break;
+
+                case PX_EVENT_MOUSE_UP:
+                    printf("mouse up: button %i at %i, %i\n", event.keycode, (int)event.mouse_x, (int)event.mouse_y);
+                    break;
+
+                case PX_EVENT_MOUSE_MOVE:
+                    printf("mouse move: %i, %i\n", (int)event.mouse_x, (int)event.mouse_y);
+                    break;
+
                 case PX_EVENT_CLOSE:
                     running = 0;
                     break;

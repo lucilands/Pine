@@ -3,6 +3,7 @@
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/extensions/Xrender.h>
+#include <X11/cursorfont.h>
 
 #include <unistd.h>
 #include <sys/time.h>
@@ -28,6 +29,7 @@ typedef struct {
 
     XVisualInfo *vi;
     Window root;
+    Cursor cursor;
 
     GLXFBConfig fbconfig;
 } context_t;
@@ -83,6 +85,7 @@ PxContext *PxCreateContext(PxResult *res) {
     ERRCHECK_N(ctx->disp, *res, PX_FAILED_OSCALL);
 
     ctx->x11_fd = ConnectionNumber(ctx->disp);
+    ctx->cursor = XCreateFontCursor(ctx->disp, XC_left_ptr);
 
     //ctx->vi = glXChooseVisual(ctx->disp, DefaultScreen(ctx->disp), att);
     
@@ -119,6 +122,7 @@ PxWindow *PxCreateWindow(PxContext *context, const PxWindowInfo info, PxWindow *
     
     win->swa = (XSetWindowAttributes) {0};
     win->swa.colormap = win->cmap;
+    win->swa.cursor = ctx->cursor;
     win->swa.event_mask = ExposureMask | KeyPressMask | KeyReleaseMask | ButtonPressMask | ButtonReleaseMask | PointerMotionMask | StructureNotifyMask;
 
     
@@ -131,7 +135,7 @@ PxWindow *PxCreateWindow(PxContext *context, const PxWindowInfo info, PxWindow *
         ctx->vi->depth,
         InputOutput,
         ctx->vi->visual,
-        CWColormap | CWEventMask,
+        CWColormap | CWEventMask | CWCursor,
         &win->swa
     );
 
@@ -322,6 +326,7 @@ void PxLoadOpenGL(PxContext *context, PxWindow *window, unsigned short version_m
 }
 
 void PxDestroyContext(PxContext *context) {
+    XFreeCursor(((context_t*)context->inner)->disp, ((context_t*)context->inner)->cursor);
     XCloseDisplay(((context_t*)context->inner)->disp);
     PxFree(context->inner);
     PxFree(context);

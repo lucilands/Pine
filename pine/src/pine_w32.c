@@ -127,6 +127,7 @@ PxContext *PxCreateContext(PxResult *res) {
     con->wc.lpfnWndProc = (WNDPROC)wnd_proc;
     con->wc.hInstance = con->hinst;
     con->wc.lpszClassName = PX_WNDCLS_NAME;
+    con->wc.hCursor = LoadCursorA(NULL, IDC_ARROW);
 
     RegisterClassA(&con->wc);
     ret->result = res;

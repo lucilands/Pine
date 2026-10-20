@@ -5,6 +5,7 @@
 #include <pine/pine.h>
 #include <wayland-client-protocol.h>
 #include <wayland-client.h>
+#include <wayland-cursor.h>
 #include <wayland-egl.h>
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
@@ -33,6 +34,10 @@ typedef struct {
     struct wl_registry *registry;
     struct wl_compositor *compositor;
     struct xdg_wm_base *xdg_wm_base;
+    struct wl_shm *shm;
+    struct wl_cursor_theme *cursor_theme;
+    struct wl_cursor *cursor;
+    struct wl_surface *cursor_surface;
     EGLDisplay egl_display;
 
     struct wl_seat *seat;
@@ -227,12 +232,23 @@ static const struct wl_keyboard_listener keyboard_listener = {
     .repeat_info = keyboard_repeat_info
 };
 
+static void set_cursor(context_t *ctx, struct wl_pointer *pointer, uint32_t serial) {
+    if (!ctx->cursor || !ctx->cursor_surface) return;
+    struct wl_cursor_image *image = ctx->cursor->images[0];
+    struct wl_buffer *buffer = wl_cursor_image_get_buffer(image);
+    if (!buffer) return;
+    wl_surface_attach(ctx->cursor_surface, buffer, 0, 0);
+    wl_surface_damage(ctx->cursor_surface, 0, 0, image->width, image->height);
+    wl_surface_commit(ctx->cursor_surface);
+    wl_pointer_set_cursor(pointer, serial, ctx->cursor_surface, image->hotspot_x, image->hotspot_y);
+}
+
 static void pointer_enter(void *data, struct wl_pointer *pointer, uint32_t serial, struct wl_surface *surface, wl_fixed_t sx, wl_fixed_t sy) {
-    (void)pointer; (void)serial;
     context_t *ctx = (context_t*)((PxContext*)data)->inner;
     ctx->ptr_focus = surface ? (PxWindow*)wl_surface_get_user_data(surface) : NULL;
     ctx->ptr_x = wl_fixed_to_int(sx);
     ctx->ptr_y = wl_fixed_to_int(sy);
+    set_cursor(ctx, pointer, serial);
 }
 
 static void push_mouse_event(context_t *ctx, int type, int button) {
@@ -327,6 +343,8 @@ static void registry_global(void *data, struct wl_registry *registry, uint32_t i
     } else if (strcmp(interface, xdg_wm_base_interface.name) == 0) {
         ctx->xdg_wm_base = wl_registry_bind(registry, id, &xdg_wm_base_interface, 1);
         xdg_wm_base_add_listener(ctx->xdg_wm_base, &xdg_wm_base_listener, NULL);
+    } else if (strcmp(interface, wl_shm_interface.name) == 0) {
+        ctx->shm = wl_registry_bind(registry, id, &wl_shm_interface, 1);
     } else if (strcmp(interface, wl_seat_interface.name) == 0 && !ctx->seat) {
         ctx->seat = wl_registry_bind(registry, id, &wl_seat_interface, version < 4 ? version : 4);
         wl_seat_add_listener(ctx->seat, &seat_listener, data);
@@ -367,6 +385,15 @@ PxContext *PxCreateContext(PxResult *res) {
     ERRCHECK_N(ctx->compositor, *res, PX_FAILED_OSCALL);
     ERRCHECK_N(ctx->xdg_wm_base, *res, PX_FAILED_OSCALL);
     wl_display_roundtrip(ctx->display);
+
+    if (ctx->shm) {
+        ctx->cursor_theme = wl_cursor_theme_load(NULL, 24, ctx->shm);
+        if (ctx->cursor_theme) {
+            ctx->cursor = wl_cursor_theme_get_cursor(ctx->cursor_theme, "left_ptr");
+            if (!ctx->cursor) ctx->cursor = wl_cursor_theme_get_cursor(ctx->cursor_theme, "default");
+        }
+        if (ctx->cursor) ctx->cursor_surface = wl_compositor_create_surface(ctx->compositor);
+    }
 
     return ret;
 }
@@ -587,6 +614,9 @@ void PxDestroyContext(PxContext *context) {
     if (ctx->xkb_state) xkb_state_unref(ctx->xkb_state);
     if (ctx->xkb_keymap) xkb_keymap_unref(ctx->xkb_keymap);
     if (ctx->xkb_context) xkb_context_unref(ctx->xkb_context);
+    if (ctx->cursor_surface) wl_surface_destroy(ctx->cursor_surface);
+    if (ctx->cursor_theme) wl_cursor_theme_destroy(ctx->cursor_theme);
+    if (ctx->shm) wl_shm_destroy(ctx->shm);
     if (ctx->xdg_wm_base) xdg_wm_base_destroy(ctx->xdg_wm_base);
     if (ctx->compositor) wl_compositor_destroy(ctx->compositor);
     if (ctx->registry) wl_registry_destroy(ctx->registry);
